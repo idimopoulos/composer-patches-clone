@@ -1,0 +1,13 @@
+{
+  "name": "example/project",
+  "extra": {
+    "patches": {
+      "drupal/core": {
+        "Existing patch": "patches/drupal/core/existing.patch"
+      }
+    },
+    "custom-config": {
+      "patch-path": "patches"
+    }
+  }
+}

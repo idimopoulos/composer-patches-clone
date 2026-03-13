@@ -1,0 +1,9 @@
+{
+  "name": "example/project",
+  "description": "Fixture project",
+  "extra": {
+    "custom-config": {
+      "patch-path": "patches"
+    }
+  }
+}

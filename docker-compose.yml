@@ -1,0 +1,45 @@
+services:
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PHP_VERSION: "8.3"
+    working_dir: /app
+    volumes:
+      - ./:/app
+    environment:
+      COMPOSER_ALLOW_SUPERUSER: "1"
+  php81:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PHP_VERSION: "8.1"
+    working_dir: /app
+    volumes:
+      - ./:/app
+    environment:
+      COMPOSER_ALLOW_SUPERUSER: "1"
+  php82:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PHP_VERSION: "8.2"
+    working_dir: /app
+    volumes:
+      - ./:/app
+    environment:
+      COMPOSER_ALLOW_SUPERUSER: "1"
+  php83:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        PHP_VERSION: "8.3"
+    working_dir: /app
+    volumes:
+      - ./:/app
+    environment:
+      COMPOSER_ALLOW_SUPERUSER: "1"

@@ -1,0 +1,21 @@
+{
+  "repositories": [
+    {
+      "type": "path",
+      "url": "../../..",
+      "options": {
+        "symlink": true
+      }
+    }
+  ],
+  "require": {
+    "idimopoulos/composer-patches-clone": "*"
+  },
+  "minimum-stability": "dev",
+  "config": {
+    "allow-plugins": {
+      "idimopoulos/composer-patches-clone": true,
+      "cweagans/composer-patches": true
+    }
+  }
+}
