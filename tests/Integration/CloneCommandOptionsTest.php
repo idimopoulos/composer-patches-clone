@@ -11,7 +11,7 @@ final class CloneCommandOptionsTest extends ComposerTestCase
         $this->startPatchServer();
 
         $this->runComposer(
-            'patches:clone drupal/core http://localhost:8123/example.patch --description="Example patch" --base-path="/resources/patch/drupal" --patch-name="custom-name"'
+            'patches:clone drupal/core ' . $this->patchUrl('example.patch') . ' --description="Example patch" --base-path="/resources/patch/drupal" --patch-name="custom-name"'
         );
 
         self::assertFileExists(
@@ -53,7 +53,7 @@ final class CloneCommandOptionsTest extends ComposerTestCase
         file_put_contents($composerJsonPath, $encoded . "\n");
 
         $this->runComposer(
-            'patches:clone drupal/core http://localhost:8123/example.patch --description="Example patch"'
+            'patches:clone drupal/core ' . $this->patchUrl('example.patch') . ' --description="Example patch"'
         );
 
         self::assertFileExists(

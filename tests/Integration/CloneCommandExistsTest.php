@@ -10,7 +10,7 @@ final class CloneCommandExistsTest extends ComposerTestCase
     {
         $this->startPatchServer();
 
-        $output = $this->runComposer('patches:clone drupal/core http://localhost:8123/example.patch');
+        $output = $this->runComposer('patches:clone drupal/core ' . $this->patchUrl('example.patch'));
 
         self::assertStringContainsString('Patch downloaded', $output);
         self::assertStringContainsString('composer.json updated', $output);
