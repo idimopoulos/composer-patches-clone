@@ -11,7 +11,7 @@ final class PatchCloneTest extends ComposerTestCase
         $this->startPatchServer();
 
         $this->runComposer(
-            'patches:clone drupal/core http://localhost:8123/example.patch --description="Example patch"'
+            'patches:clone drupal/core ' . $this->patchUrl('example.patch') . ' --description="Example patch"'
         );
 
         $patchPath = $this->workingDirectory

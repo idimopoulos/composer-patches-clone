@@ -7,6 +7,7 @@ namespace PatchManager;
 use Composer\Plugin\Capability\CommandProvider as CommandProviderCapability;
 use PatchManager\Composer\ComposerJsonUpdater;
 use PatchManager\Command\ClonePatchCommand;
+use PatchManager\Command\ListPatchesCommand;
 use PatchManager\Command\MigratePatchesCommand;
 use PatchManager\Patch\PatchDownloader;
 use PatchManager\Patch\PatchWriter;
@@ -30,6 +31,10 @@ final class CommandProvider implements CommandProviderCapability
             new MigratePatchesCommand(
                 new PatchDownloader(),
                 new PatchWriter($projectRoot),
+                new ComposerJsonUpdater($projectRoot . DIRECTORY_SEPARATOR . 'composer.json')
+            ),
+            new ListPatchesCommand(
+                $projectRoot,
                 new ComposerJsonUpdater($projectRoot . DIRECTORY_SEPARATOR . 'composer.json')
             ),
         ];

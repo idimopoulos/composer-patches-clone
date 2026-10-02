@@ -12,6 +12,30 @@ It helps turn remote patch definitions into local patch files that live in your 
 - `composer patches:migrate`  
   Scan existing `extra.patches` entries, download remote patch URLs, and replace them with local file paths.
 
+- `composer patches:list [package] [--format=table|json]`  
+  List configured patches with their local path and the URL they were downloaded from. Filter by package, using wildcards if needed (`drupal/*`).
+
+## Source URLs
+
+`patches:clone` and `patches:migrate` record where each patch came from in `extra.patches-sources`, keyed the same way as `extra.patches`:
+
+```json
+"extra": {
+    "patches": {
+        "drupal/core": {
+            "Fix something": "resources/patch/drupal/core/1234.diff.patch"
+        }
+    },
+    "patches-sources": {
+        "drupal/core": {
+            "Fix something": "https://git.drupalcode.org/project/drupal/-/merge_requests/1234.diff"
+        }
+    }
+}
+```
+
+The URLs are stored in `composer.json` rather than `composer.lock`. Composer rewrites the lock file on every update without custom keys, and dependency bots run updates with plugins disabled, so they would be lost there. Patches added by hand show `(unknown)` as their source in `patches:list`.
+
 ## Local Development
 
 The repository includes a Docker-based test setup.
@@ -32,4 +56,8 @@ docker compose run --rm php vendor/bin/phpunit
 
 - The plugin currently uses the `PatchManager\\` PHP namespace.
 - By default, local patches are written under `resources/patch`.
-- `patches:clone` also supports `--base-path` and `--patch-name`.
+- `patches:clone` also supports `--base-path` and `--patch-name`. `--patch-name` must be a plain filename and `--base-path` must not contain `..` segments.
+- Running `patches:clone` again for an existing description refreshes that patch in place, and turns a remote entry into a local one.
+- If a different patch already uses the target filename, the new file gets a numeric suffix (`fix-2.patch`) instead of overwriting it. Identical content reuses the existing file.
+- `patches:migrate` only handles `"description": "https://..."` entries; other formats are reported and skipped. Failed downloads are reported, the remaining patches are still migrated, and the command exits non-zero.
+- `composer.json` is edited in place, so formatting and unrelated content are preserved.

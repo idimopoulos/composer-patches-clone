@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PatchManager\Tests\Integration;
 
 use PHPUnit\Framework\Assert;
+use PatchManager\Tests\Support\PatchServer;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Symfony\Component\Process\Process;
@@ -12,7 +13,7 @@ use Symfony\Component\Process\Process;
 abstract class ComposerTestCase extends TestCase
 {
     protected string $workingDirectory;
-    private ?Process $patchServerProcess = null;
+    private ?PatchServer $patchServer = null;
 
     protected function setUp(): void
     {
@@ -28,9 +29,9 @@ abstract class ComposerTestCase extends TestCase
 
     protected function tearDown(): void
     {
-        if ($this->patchServerProcess !== null) {
-            $this->patchServerProcess->stop(1);
-            $this->patchServerProcess = null;
+        if ($this->patchServer !== null) {
+            $this->patchServer->stop();
+            $this->patchServer = null;
         }
 
         $this->deleteDirectory($this->workingDirectory);
@@ -63,33 +64,21 @@ abstract class ComposerTestCase extends TestCase
 
     protected function startPatchServer(): void
     {
-        if ($this->patchServerProcess !== null && $this->patchServerProcess->isRunning()) {
-            return;
+        $this->patchServer ??= PatchServer::start();
+    }
+
+    protected function patchUrl(string $path): string
+    {
+        if ($this->patchServer === null) {
+            throw new RuntimeException('Call startPatchServer() before requesting a patch URL.');
         }
 
-        $fixturesDirectory = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'fixtures' . DIRECTORY_SEPARATOR . 'patches';
-
-        $this->patchServerProcess = new Process(
-            ['php', '-S', 'localhost:8123', '-t', $fixturesDirectory],
-            $fixturesDirectory
-        );
-        $this->patchServerProcess->start();
-
-        usleep(500000);
-
-        if (!$this->patchServerProcess->isRunning()) {
-            throw new RuntimeException(
-                "Patch fixture server failed to start.\nSTDOUT:\n"
-                . $this->patchServerProcess->getOutput()
-                . "\nSTDERR:\n"
-                . $this->patchServerProcess->getErrorOutput()
-            );
-        }
+        return $this->patchServer->url($path);
     }
 
     private function fixtureDirectory(): string
     {
-        return dirname(__DIR__) . DIRECTORY_SEPARATOR . 'fixtures' . DIRECTORY_SEPARATOR . 'test-project';
+        return dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Fixtures' . DIRECTORY_SEPARATOR . 'test-project';
     }
 
     private function createComposerProcess(string $command): Process
@@ -139,10 +128,14 @@ abstract class ComposerTestCase extends TestCase
             mkdir($destination, 0777, true);
         }
 
+        if (!is_dir($source)) {
+            throw new RuntimeException(sprintf('Fixture directory %s does not exist.', $source));
+        }
+
         $items = scandir($source);
 
         if ($items === false) {
-            return;
+            throw new RuntimeException(sprintf('Unable to read fixture directory %s.', $source));
         }
 
         foreach ($items as $item) {

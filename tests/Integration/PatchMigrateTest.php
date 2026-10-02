@@ -35,7 +35,13 @@ final class PatchMigrateTest extends ComposerTestCase
             '"Example patch": "resources/patch/drupal/core/example.patch"',
             $composerJson
         );
-        self::assertStringNotContainsString('http://localhost:8123/example.patch', $composerJson);
+
+        $data = json_decode($composerJson, true);
+        self::assertIsArray($data);
+        self::assertSame(
+            ['Example patch' => $this->patchUrl('example.patch')],
+            $data['extra']['patches-sources']['drupal/core']
+        );
     }
 
     private function seedRemotePatch(): void
@@ -49,7 +55,7 @@ final class PatchMigrateTest extends ComposerTestCase
 
         self::assertIsArray($data);
 
-        $data['extra']['patches']['drupal/core']['Example patch'] = 'http://localhost:8123/example.patch';
+        $data['extra']['patches']['drupal/core']['Example patch'] = $this->patchUrl('example.patch');
 
         $encoded = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
