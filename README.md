@@ -36,6 +36,11 @@ It helps turn remote patch definitions into local patch files that live in your 
 
 The URLs are stored in `composer.json` rather than `composer.lock`. Composer rewrites the lock file on every update without custom keys, and dependency bots run updates with plugins disabled, so they would be lost there. Patches added by hand show `(unknown)` as their source in `patches:list`.
 
+## Requirements
+
+- PHP 8.1 or newer
+- Composer 2.3 or newer
+
 ## Local Development
 
 The repository includes a Docker-based test setup.
@@ -61,3 +66,7 @@ docker compose run --rm php vendor/bin/phpunit
 - If a different patch already uses the target filename, the new file gets a numeric suffix (`fix-2.patch`) instead of overwriting it. Identical content reuses the existing file.
 - `patches:migrate` only handles `"description": "https://..."` entries; other formats are reported and skipped. Failed downloads are reported, the remaining patches are still migrated, and the command exits non-zero.
 - `composer.json` is edited in place, so formatting and unrelated content are preserved.
+
+## Continuous Integration
+
+Every pull request runs the test suite on GitHub Actions (`.github/workflows/ci.yml`). The jobs cover PHP 8.1 to 8.4 with the newest allowed dependencies, PHP 8.1 with the oldest allowed dependencies, and PHP 8.3 with the committed `composer.lock`.
