@@ -22,9 +22,11 @@ jobs:
         php: ['8.1', '8.2', '8.3', '8.4']
         dependencies: ['highest']
         include:
-          # Oldest versions allowed by composer.json.
+          # Oldest versions allowed by composer.json, including the Composer
+          # binary the integration tests run the plugin in.
           - php: '8.1'
             dependencies: 'lowest'
+            composer: '2.3.0'
           # What contributors get from the committed composer.lock.
           - php: '8.3'
             dependencies: 'locked'
@@ -38,7 +40,10 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           coverage: none
-          tools: composer:v2
+          tools: composer:${{ matrix.composer || 'v2' }}
+
+      - name: Show Composer version
+        run: composer --version
 
       - name: Validate composer.json
         run: composer validate --no-check-publish

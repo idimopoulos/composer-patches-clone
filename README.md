@@ -69,4 +69,4 @@ docker compose run --rm php vendor/bin/phpunit
 
 ## Continuous Integration
 
-Every pull request runs the test suite on GitHub Actions (`.github/workflows/ci.yml`). The jobs cover PHP 8.1 to 8.4 with the newest allowed dependencies, PHP 8.1 with the oldest allowed dependencies, and PHP 8.3 with the committed `composer.lock`.
+Every pull request runs the test suite on GitHub Actions (`.github/workflows/ci.yml`). The jobs cover PHP 8.1 to 8.4 with the newest allowed dependencies, PHP 8.1 with the oldest allowed dependencies and Composer 2.3, and PHP 8.3 with the committed `composer.lock`.
