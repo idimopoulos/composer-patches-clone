@@ -8,6 +8,7 @@ use Composer\Command\BaseCommand;
 use PatchManager\Composer\ComposerJsonUpdater;
 use PatchManager\Patch\PatchDownloader;
 use PatchManager\Patch\PatchWriter;
+use PatchManager\Patch\RemoteUrl;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -47,7 +48,7 @@ final class ClonePatchCommand extends BaseCommand
         $output->writeln('Patch downloaded');
 
         $existingPath = $this->composerJsonUpdater->getPatchPath($package, $description);
-        if (is_string($existingPath) && !$this->isRemoteUrl($existingPath)) {
+        if (is_string($existingPath) && !RemoteUrl::isRemote($existingPath)) {
             $patchPath = $this->patchWriter->writeToRelativePath($existingPath, $patchContents);
         } else {
             $patchPath = $this->patchWriter->write(
@@ -62,18 +63,9 @@ final class ClonePatchCommand extends BaseCommand
 
         $output->writeln(sprintf('Patch saved to %s', $patchPath));
 
-        $this->composerJsonUpdater->replacePatch($package, $description, $patchPath);
+        $this->composerJsonUpdater->replacePatch($package, $description, $patchPath, $url);
         $output->writeln('composer.json updated');
 
         return self::SUCCESS;
-    }
-
-    private function isRemoteUrl(string $path): bool
-    {
-        if (filter_var($path, FILTER_VALIDATE_URL) === false) {
-            return false;
-        }
-
-        return in_array(strtolower((string) parse_url($path, PHP_URL_SCHEME)), ['http', 'https'], true);
     }
 }

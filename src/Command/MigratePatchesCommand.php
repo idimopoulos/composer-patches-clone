@@ -9,6 +9,7 @@ use InvalidArgumentException;
 use PatchManager\Composer\ComposerJsonUpdater;
 use PatchManager\Patch\PatchDownloader;
 use PatchManager\Patch\PatchWriter;
+use PatchManager\Patch\RemoteUrl;
 use RuntimeException;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -47,7 +48,7 @@ final class MigratePatchesCommand extends BaseCommand
                     continue;
                 }
 
-                if (!$this->isRemoteUrl($path)) {
+                if (!RemoteUrl::isRemote($path)) {
                     continue;
                 }
 
@@ -60,7 +61,7 @@ final class MigratePatchesCommand extends BaseCommand
                     continue;
                 }
 
-                $this->composerJsonUpdater->replacePatch($package, $description, $localPath);
+                $this->composerJsonUpdater->replacePatch($package, $description, $localPath, $path);
 
                 $output->writeln(sprintf('Migrated %s: %s -> %s', $package, $description, $localPath));
                 $migratedCount++;
@@ -82,16 +83,5 @@ final class MigratePatchesCommand extends BaseCommand
         $output->writeln(sprintf('Migrated %d remote patch(es).', $migratedCount));
 
         return self::SUCCESS;
-    }
-
-    private function isRemoteUrl(string $path): bool
-    {
-        if (filter_var($path, FILTER_VALIDATE_URL) === false) {
-            return false;
-        }
-
-        $scheme = strtolower((string) parse_url($path, PHP_URL_SCHEME));
-
-        return in_array($scheme, ['http', 'https'], true);
     }
 }

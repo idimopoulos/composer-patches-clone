@@ -53,6 +53,47 @@ final class ClonePatchCommandTest extends CommandTestCase
         );
     }
 
+    public function testItRecordsTheSourceUrl(): void
+    {
+        $this->writeComposerJson([]);
+
+        $this->cloneCommand()->execute([
+            'package' => 'drupal/core',
+            'url' => $this->patchUrl('one/fix.patch'),
+            '--description' => 'Fix',
+        ]);
+
+        self::assertSame(['Fix' => $this->patchUrl('one/fix.patch')], $this->sourcesFor('drupal/core'));
+    }
+
+    public function testRecloningFromANewUrlUpdatesTheSourceAndKeepsOthers(): void
+    {
+        $this->writeComposerJson([
+            'extra' => [
+                'patches' => ['drupal/core' => [
+                    'Fix' => 'resources/patch/drupal/core/fix.patch',
+                    'Other' => 'resources/patch/drupal/core/other.patch',
+                ]],
+                'patches-sources' => ['drupal/core' => [
+                    'Fix' => 'https://example.com/old.patch',
+                    'Other' => 'https://example.com/other.patch',
+                ]],
+            ],
+        ]);
+
+        $this->cloneCommand()->execute([
+            'package' => 'drupal/core',
+            'url' => $this->patchUrl('two/fix.patch'),
+            '--description' => 'Fix',
+        ]);
+
+        self::assertSame(
+            ['Fix' => $this->patchUrl('two/fix.patch'), 'Other' => 'https://example.com/other.patch'],
+            $this->sourcesFor('drupal/core')
+        );
+        self::assertSame('resources/patch/drupal/core/fix.patch', $this->patchesFor('drupal/core')['Fix']);
+    }
+
     public function testItDoesNotOverwriteAnotherPatchWithTheSameFilename(): void
     {
         $this->writeComposerJson([]);

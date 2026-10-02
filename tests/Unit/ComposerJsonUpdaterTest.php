@@ -107,6 +107,55 @@ final class ComposerJsonUpdaterTest extends TestCase
         );
     }
 
+    public function testItRecordsSourcesNextToPatches(): void
+    {
+        $composerJsonPath = $this->copyFixture('composer.with-patches.json');
+        $updater = new ComposerJsonUpdater($composerJsonPath);
+
+        $updater->replacePatch('drupal/core', 'New', 'patches/new.patch', 'https://example.com/new.patch');
+
+        self::assertSame(['drupal/core' => ['New' => 'https://example.com/new.patch']], $updater->getSources());
+        self::assertSame('patches/new.patch', $updater->getPatchPath('drupal/core', 'New'));
+
+        $contents = file_get_contents($composerJsonPath);
+        self::assertIsString($contents);
+        self::assertStringContainsString('"custom-config": {', $contents);
+    }
+
+    public function testReplacingWithoutASourceKeepsTheRecordedSource(): void
+    {
+        $composerJsonPath = $this->copyFixture('composer.with-patches.json');
+        $updater = new ComposerJsonUpdater($composerJsonPath);
+        $updater->replacePatch('drupal/core', 'New', 'patches/new.patch', 'https://example.com/new.patch');
+
+        $updater->replacePatch('drupal/core', 'New', 'patches/moved.patch');
+
+        self::assertSame(['drupal/core' => ['New' => 'https://example.com/new.patch']], $updater->getSources());
+    }
+
+    public function testItIgnoresMalformedSources(): void
+    {
+        $composerJsonPath = $this->workspace . DIRECTORY_SEPARATOR . 'composer.json';
+        file_put_contents($composerJsonPath, (string) json_encode([
+            'extra' => ['patches-sources' => [
+                'drupal/core' => ['Valid' => 'https://example.com/a.patch', 'Invalid' => ['url' => 'x']],
+                'drupal/token' => 'not-a-map',
+            ]],
+        ]));
+
+        self::assertSame(
+            ['drupal/core' => ['Valid' => 'https://example.com/a.patch']],
+            (new ComposerJsonUpdater($composerJsonPath))->getSources()
+        );
+    }
+
+    public function testItReturnsNoSourcesWhenNoneAreRecorded(): void
+    {
+        $updater = new ComposerJsonUpdater($this->copyFixture('composer.with-patches.json'));
+
+        self::assertSame([], $updater->getSources());
+    }
+
     public function testItPreservesFormattingOfUnrelatedContent(): void
     {
         $composerJsonPath = $this->workspace . DIRECTORY_SEPARATOR . 'composer.json';

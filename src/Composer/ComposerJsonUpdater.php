@@ -11,6 +11,8 @@ use stdClass;
 
 final class ComposerJsonUpdater
 {
+    public const SOURCES_KEY = 'patches-sources';
+
     public function __construct(
         private readonly string $composerJsonPath
     ) {
@@ -45,9 +47,12 @@ final class ComposerJsonUpdater
         return $patches;
     }
 
-    public function replacePatch(string $package, string $description, string $path): void
+    /**
+     * Points a patch at a path, optionally recording where it was downloaded from.
+     */
+    public function replacePatch(string $package, string $description, string $path, ?string $sourceUrl = null): void
     {
-        $this->setPatch($this->getPatches(), $package, $description, $path);
+        $this->setPatch($this->getPatches(), $package, $description, $path, $sourceUrl);
     }
 
     public function getPatchPath(string $package, string $description): ?string
@@ -60,17 +65,55 @@ final class ComposerJsonUpdater
     }
 
     /**
+     * Returns extra.patches-sources: package => description => source URL.
+     *
+     * @return array<string, array<string, string>>
+     */
+    public function getSources(): array
+    {
+        $data = $this->readData();
+        $sources = $data['extra'][self::SOURCES_KEY] ?? [];
+
+        if (!is_array($sources)) {
+            return [];
+        }
+
+        $valid = [];
+
+        foreach ($sources as $package => $packageSources) {
+            if (!is_string($package) || !is_array($packageSources)) {
+                continue;
+            }
+
+            foreach ($packageSources as $description => $url) {
+                if (is_string($description) && is_string($url)) {
+                    $valid[$package][$description] = $url;
+                }
+            }
+        }
+
+        return $valid;
+    }
+
+    /**
      * @param array<string, mixed> $patches
      */
-    private function setPatch(array $patches, string $package, string $description, string $path): void
+    private function setPatch(array $patches, string $package, string $description, string $path, ?string $sourceUrl = null): void
     {
         if (!isset($patches[$package]) || !is_array($patches[$package])) {
             $patches[$package] = [];
         }
 
         $patches[$package][$description] = $path;
+        $nodes = ['patches' => $patches];
 
-        $this->writePatches($patches);
+        if ($sourceUrl !== null) {
+            $sources = $this->getSources();
+            $sources[$package][$description] = $sourceUrl;
+            $nodes[self::SOURCES_KEY] = $sources;
+        }
+
+        $this->writeExtra($nodes);
     }
 
     /**
@@ -99,16 +142,21 @@ final class ComposerJsonUpdater
     }
 
     /**
-     * Writes extra.patches while leaving the rest of the file untouched.
+     * Writes the given extra.* nodes while leaving the rest of the file untouched.
      *
-     * @param array<string, mixed> $patches
+     * @param array<string, array<string, mixed>> $nodes
      */
-    private function writePatches(array $patches): void
+    private function writeExtra(array $nodes): void
     {
         $contents = $this->readContents();
         $manipulator = new JsonManipulator($contents);
+        $manipulated = true;
 
-        if ($manipulator->addSubNode('extra', 'patches', $patches)) {
+        foreach ($nodes as $name => $value) {
+            $manipulated = $manipulated && $manipulator->addSubNode('extra', $name, $value);
+        }
+
+        if ($manipulated) {
             $this->writeContents($manipulator->getContents());
 
             return;
@@ -126,7 +174,10 @@ final class ComposerJsonUpdater
             $data->extra = new stdClass();
         }
 
-        $data->extra->patches = $patches;
+        foreach ($nodes as $name => $value) {
+            $data->extra->{$name} = $value;
+        }
+
         $newline = str_contains($contents, "\r\n") ? "\r\n" : "\n";
 
         $this->writeContents(str_replace("\n", $newline, JsonFile::encode($data)) . $newline);

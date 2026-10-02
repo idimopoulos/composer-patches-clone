@@ -6,6 +6,7 @@ namespace PatchManager\Tests\Unit\Command;
 
 use Composer\Console\Application;
 use PatchManager\Command\ClonePatchCommand;
+use PatchManager\Command\ListPatchesCommand;
 use PatchManager\Command\MigratePatchesCommand;
 use PatchManager\Composer\ComposerJsonUpdater;
 use PatchManager\Patch\PatchDownloader;
@@ -109,6 +110,25 @@ abstract class CommandTestCase extends TestCase
             new PatchWriter($this->projectRoot),
             new ComposerJsonUpdater($this->composerJsonPath())
         ));
+    }
+
+    protected function listCommand(): CommandTester
+    {
+        return $this->tester(new ListPatchesCommand(
+            $this->projectRoot,
+            new ComposerJsonUpdater($this->composerJsonPath())
+        ));
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function sourcesFor(string $package): array
+    {
+        $sources = $this->readComposerJson()['extra']['patches-sources'][$package] ?? null;
+        self::assertIsArray($sources);
+
+        return $sources;
     }
 
     private function tester(Command $command): CommandTester

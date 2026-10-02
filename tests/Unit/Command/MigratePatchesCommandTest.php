@@ -32,6 +32,21 @@ final class MigratePatchesCommandTest extends CommandTestCase
         self::assertStringContainsString('+two', (string) file_get_contents($this->projectFile('resources/patch/drupal/core/fix-2.patch')));
     }
 
+    public function testItRecordsSourcesOnlyForMigratedPatches(): void
+    {
+        $this->writeComposerJson([
+            'extra' => ['patches' => ['drupal/core' => [
+                'Good' => $this->patchUrl('example.patch'),
+                'Missing' => $this->patchUrl('missing.patch'),
+                'Local' => 'patches/local.patch',
+            ]]],
+        ]);
+
+        $this->migrateCommand()->execute([]);
+
+        self::assertSame(['Good' => $this->patchUrl('example.patch')], $this->sourcesFor('drupal/core'));
+    }
+
     public function testItLeavesLocalAndNonHttpEntriesUntouched(): void
     {
         $this->writeComposerJson([
