@@ -135,7 +135,7 @@ abstract class CommandTestCase extends TestCase
     {
         $application = new Application();
         $application->setAutoExit(false);
-        $application->add($command);
+        $application->addCommands([$command]);
 
         return new CommandTester($command);
     }
