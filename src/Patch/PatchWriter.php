@@ -27,7 +27,8 @@ final class PatchWriter
 
         $filename = $this->resolveFilename($url, $patchName);
         $resolvedBasePath = $this->normalizeBasePath($basePath ?? $this->defaultBasePath);
-        $relativePath = sprintf('%s/%s/%s/%s', $resolvedBasePath, $vendor, $name, $filename);
+        $directory = sprintf('%s/%s/%s', $resolvedBasePath, $vendor, $name);
+        $relativePath = $this->resolveAvailablePath($directory, $filename, $patchContent);
         $this->writeToRelativePath($relativePath, $patchContent);
 
         return $relativePath;
@@ -35,7 +36,7 @@ final class PatchWriter
 
     public function writeToRelativePath(string $relativePath, string $patchContent): string
     {
-        $absolutePath = $this->projectRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
+        $absolutePath = $this->absolutePath($relativePath);
         $directory = dirname($absolutePath);
 
         if (!is_dir($directory) && !mkdir($directory, 0777, true) && !is_dir($directory)) {
@@ -47,6 +48,35 @@ final class PatchWriter
         }
 
         return $relativePath;
+    }
+
+    /**
+     * Returns a path that is free or already holds identical content.
+     *
+     * Two different patches can share a URL basename (e.g. "fix.patch" from
+     * two issues). The second one gets a numeric suffix instead of silently
+     * replacing the first.
+     */
+    private function resolveAvailablePath(string $directory, string $filename, string $patchContent): string
+    {
+        $extensionPosition = strrpos($filename, '.');
+        $stem = $extensionPosition === false ? $filename : substr($filename, 0, $extensionPosition);
+        $extension = $extensionPosition === false ? '' : substr($filename, $extensionPosition);
+
+        for ($attempt = 1; ; $attempt++) {
+            $candidate = $attempt === 1 ? $filename : sprintf('%s-%d%s', $stem, $attempt, $extension);
+            $relativePath = $directory . '/' . $candidate;
+            $absolutePath = $this->absolutePath($relativePath);
+
+            if (!file_exists($absolutePath) || file_get_contents($absolutePath) === $patchContent) {
+                return $relativePath;
+            }
+        }
+    }
+
+    private function absolutePath(string $relativePath): string
+    {
+        return $this->projectRoot . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relativePath);
     }
 
     /**
@@ -65,9 +95,15 @@ final class PatchWriter
 
     private function resolveFilename(string $url, ?string $patchName): string
     {
-        $filename = $patchName !== null && trim($patchName) !== ''
-            ? trim($patchName)
-            : basename((string) parse_url($url, PHP_URL_PATH));
+        if ($patchName !== null && trim($patchName) !== '') {
+            $filename = trim($patchName);
+
+            if (preg_match('#[/\\\\]#', $filename) === 1 || $filename === '.' || $filename === '..') {
+                throw new InvalidArgumentException('Patch name must be a plain filename without directories.');
+            }
+        } else {
+            $filename = basename((string) parse_url($url, PHP_URL_PATH));
+        }
 
         if ($filename === '' || $filename === '.' || $filename === '/' || $filename === '\\') {
             throw new InvalidArgumentException('URL must contain a valid patch filename.');
@@ -87,6 +123,10 @@ final class PatchWriter
 
         if ($normalized === '') {
             throw new InvalidArgumentException('Base path must not be empty.');
+        }
+
+        if (in_array('..', explode('/', $normalized), true)) {
+            throw new InvalidArgumentException('Base path must not contain ".." segments.');
         }
 
         return $normalized;

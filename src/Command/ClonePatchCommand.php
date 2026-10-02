@@ -62,7 +62,7 @@ final class ClonePatchCommand extends BaseCommand
 
         $output->writeln(sprintf('Patch saved to %s', $patchPath));
 
-        $this->composerJsonUpdater->addPatch($package, $description, $patchPath);
+        $this->composerJsonUpdater->replacePatch($package, $description, $patchPath);
         $output->writeln('composer.json updated');
 
         return self::SUCCESS;

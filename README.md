@@ -32,4 +32,8 @@ docker compose run --rm php vendor/bin/phpunit
 
 - The plugin currently uses the `PatchManager\\` PHP namespace.
 - By default, local patches are written under `resources/patch`.
-- `patches:clone` also supports `--base-path` and `--patch-name`.
+- `patches:clone` also supports `--base-path` and `--patch-name`. `--patch-name` must be a plain filename and `--base-path` must not contain `..` segments.
+- Running `patches:clone` again for an existing description refreshes that patch in place, and turns a remote entry into a local one.
+- If a different patch already uses the target filename, the new file gets a numeric suffix (`fix-2.patch`) instead of overwriting it. Identical content reuses the existing file.
+- `patches:migrate` only handles `"description": "https://..."` entries; other formats are reported and skipped. Failed downloads are reported, the remaining patches are still migrated, and the command exits non-zero.
+- `composer.json` is edited in place, so formatting and unrelated content are preserved.

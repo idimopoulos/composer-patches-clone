@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace PatchManager\Command;
 
 use Composer\Command\BaseCommand;
+use InvalidArgumentException;
 use PatchManager\Composer\ComposerJsonUpdater;
 use PatchManager\Patch\PatchDownloader;
 use PatchManager\Patch\PatchWriter;
+use RuntimeException;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
@@ -31,15 +33,33 @@ final class MigratePatchesCommand extends BaseCommand
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $migratedCount = 0;
+        $failedCount = 0;
 
         foreach ($this->composerJsonUpdater->getPatches() as $package => $patches) {
+            if (!is_array($patches)) {
+                $output->writeln(sprintf('<comment>Skipped %s: patch definitions must be an object of description => path.</comment>', $package));
+                continue;
+            }
+
             foreach ($patches as $description => $path) {
+                if (!is_string($description) || !is_string($path)) {
+                    $output->writeln(sprintf('<comment>Skipped %s: only "description": "url" entries are supported.</comment>', $package));
+                    continue;
+                }
+
                 if (!$this->isRemoteUrl($path)) {
                     continue;
                 }
 
-                $patchContents = $this->patchDownloader->download($path);
-                $localPath = $this->patchWriter->write($package, $description, $patchContents, $path);
+                try {
+                    $patchContents = $this->patchDownloader->download($path);
+                    $localPath = $this->patchWriter->write($package, $description, $patchContents, $path);
+                } catch (RuntimeException | InvalidArgumentException $exception) {
+                    $output->writeln(sprintf('<error>Failed %s: %s (%s)</error>', $package, $description, $exception->getMessage()));
+                    $failedCount++;
+                    continue;
+                }
+
                 $this->composerJsonUpdater->replacePatch($package, $description, $localPath);
 
                 $output->writeln(sprintf('Migrated %s: %s -> %s', $package, $description, $localPath));
@@ -47,11 +67,19 @@ final class MigratePatchesCommand extends BaseCommand
             }
         }
 
-        if ($migratedCount === 0) {
+        if ($migratedCount === 0 && $failedCount === 0) {
             $output->writeln('No remote patches found.');
-        } else {
-            $output->writeln(sprintf('Migrated %d remote patch(es).', $migratedCount));
+
+            return self::SUCCESS;
         }
+
+        if ($failedCount > 0) {
+            $output->writeln(sprintf('Migrated %d remote patch(es), %d failed.', $migratedCount, $failedCount));
+
+            return self::FAILURE;
+        }
+
+        $output->writeln(sprintf('Migrated %d remote patch(es).', $migratedCount));
 
         return self::SUCCESS;
     }

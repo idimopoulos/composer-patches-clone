@@ -6,6 +6,7 @@ namespace PatchManager\Tests\Unit;
 
 use PatchManager\Composer\ComposerJsonUpdater;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 final class ComposerJsonUpdaterTest extends TestCase
 {
@@ -104,6 +105,58 @@ final class ComposerJsonUpdaterTest extends TestCase
             'patches/drupal/core/existing.patch',
             $updater->getPatchPath('drupal/core', 'Existing patch')
         );
+    }
+
+    public function testItPreservesFormattingOfUnrelatedContent(): void
+    {
+        $composerJsonPath = $this->workspace . DIRECTORY_SEPARATOR . 'composer.json';
+        file_put_contents(
+            $composerJsonPath,
+            "{\n  \"name\": \"example/project\",\n  \"description\": \"Ünïcode café\",\n  \"autoload\": {},\n  \"require\": {},\n  \"extra\": {\n    \"custom\": {}\n  }\n}\n"
+        );
+        $updater = new ComposerJsonUpdater($composerJsonPath);
+
+        $updater->replacePatch('drupal/core', 'Fix ✓', 'patches/drupal/core/fix.patch');
+
+        $contents = file_get_contents($composerJsonPath);
+
+        self::assertIsString($contents);
+        self::assertStringContainsString("\n  \"description\": \"Ünïcode café\",\n", $contents);
+        self::assertStringContainsString("\n  \"autoload\": {},\n", $contents);
+        self::assertStringContainsString("\n  \"require\": {},\n", $contents);
+        self::assertStringContainsString("\n    \"custom\": {},\n", $contents);
+        self::assertStringContainsString('"Fix ✓": "patches/drupal/core/fix.patch"', $contents);
+        self::assertStringEndsWith("}\n", $contents);
+    }
+
+    public function testItPreservesWindowsLineEndings(): void
+    {
+        $composerJsonPath = $this->workspace . DIRECTORY_SEPARATOR . 'composer.json';
+        file_put_contents($composerJsonPath, "{\r\n    \"name\": \"example/project\"\r\n}\r\n");
+        $updater = new ComposerJsonUpdater($composerJsonPath);
+
+        $updater->replacePatch('drupal/core', 'Fix', 'patches/fix.patch');
+
+        $contents = file_get_contents($composerJsonPath);
+
+        self::assertIsString($contents);
+        self::assertStringEndsWith("}\r\n", $contents);
+        self::assertSame(
+            ['drupal/core' => ['Fix' => 'patches/fix.patch']],
+            $updater->getPatches()
+        );
+    }
+
+    public function testItFailsClearlyOnInvalidJson(): void
+    {
+        $composerJsonPath = $this->workspace . DIRECTORY_SEPARATOR . 'composer.json';
+        file_put_contents($composerJsonPath, '{"name": ');
+        $updater = new ComposerJsonUpdater($composerJsonPath);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('does not contain valid JSON');
+
+        $updater->replacePatch('drupal/core', 'Fix', 'patches/fix.patch');
     }
 
     private function copyFixture(string $fixture): string

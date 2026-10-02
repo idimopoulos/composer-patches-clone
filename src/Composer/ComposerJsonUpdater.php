@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace PatchManager\Composer;
 
+use Composer\Json\JsonFile;
+use Composer\Json\JsonManipulator;
 use RuntimeException;
+use stdClass;
 
 final class ComposerJsonUpdater
 {
@@ -15,31 +18,19 @@ final class ComposerJsonUpdater
 
     public function addPatch(string $package, string $description, string $path): void
     {
-        $data = $this->readData();
+        $patches = $this->getPatches();
 
-        if (!isset($data['extra']) || !is_array($data['extra'])) {
-            $data['extra'] = [];
-        }
-
-        if (!isset($data['extra']['patches']) || !is_array($data['extra']['patches'])) {
-            $data['extra']['patches'] = [];
-        }
-
-        if (!isset($data['extra']['patches'][$package]) || !is_array($data['extra']['patches'][$package])) {
-            $data['extra']['patches'][$package] = [];
-        }
-
-        if (isset($data['extra']['patches'][$package][$description])) {
+        if (isset($patches[$package][$description])) {
             return;
         }
 
-        $data['extra']['patches'][$package][$description] = $path;
-
-        $this->writeData($data);
+        $this->setPatch($patches, $package, $description, $path);
     }
 
     /**
-     * @return array<string, array<string, string>>
+     * Returns extra.patches as written; entries are not guaranteed to be strings.
+     *
+     * @return array<string, mixed>
      */
     public function getPatches(): array
     {
@@ -56,43 +47,38 @@ final class ComposerJsonUpdater
 
     public function replacePatch(string $package, string $description, string $path): void
     {
-        $data = $this->readData();
-
-        if (!isset($data['extra']) || !is_array($data['extra'])) {
-            $data['extra'] = [];
-        }
-
-        if (!isset($data['extra']['patches']) || !is_array($data['extra']['patches'])) {
-            $data['extra']['patches'] = [];
-        }
-
-        if (!isset($data['extra']['patches'][$package]) || !is_array($data['extra']['patches'][$package])) {
-            $data['extra']['patches'][$package] = [];
-        }
-
-        $data['extra']['patches'][$package][$description] = $path;
-
-        $this->writeData($data);
+        $this->setPatch($this->getPatches(), $package, $description, $path);
     }
 
     public function getPatchPath(string $package, string $description): ?string
     {
         $patches = $this->getPatches();
 
-        $path = $patches[$package][$description] ?? null;
+        $path = is_array($patches[$package] ?? null) ? ($patches[$package][$description] ?? null) : null;
 
         return is_string($path) ? $path : null;
     }
 
-    private function readData(): array
+    /**
+     * @param array<string, mixed> $patches
+     */
+    private function setPatch(array $patches, string $package, string $description, string $path): void
     {
-        $contents = file_get_contents($this->composerJsonPath);
-
-        if ($contents === false) {
-            throw new RuntimeException(sprintf('Unable to read %s.', $this->composerJsonPath));
+        if (!isset($patches[$package]) || !is_array($patches[$package])) {
+            $patches[$package] = [];
         }
 
-        $data = json_decode($contents, true);
+        $patches[$package][$description] = $path;
+
+        $this->writePatches($patches);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function readData(): array
+    {
+        $data = json_decode($this->readContents(), true);
 
         if (!is_array($data)) {
             throw new RuntimeException(sprintf('The file %s does not contain valid JSON.', $this->composerJsonPath));
@@ -101,23 +87,54 @@ final class ComposerJsonUpdater
         return $data;
     }
 
-    private function writeData(array $data): void
+    private function readContents(): string
     {
-        $contents = file_get_contents($this->composerJsonPath);
+        $contents = @file_get_contents($this->composerJsonPath);
 
         if ($contents === false) {
             throw new RuntimeException(sprintf('Unable to read %s.', $this->composerJsonPath));
         }
 
-        $encoded = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        return $contents;
+    }
 
-        if ($encoded === false) {
-            throw new RuntimeException(sprintf('Unable to encode %s.', $this->composerJsonPath));
+    /**
+     * Writes extra.patches while leaving the rest of the file untouched.
+     *
+     * @param array<string, mixed> $patches
+     */
+    private function writePatches(array $patches): void
+    {
+        $contents = $this->readContents();
+        $manipulator = new JsonManipulator($contents);
+
+        if ($manipulator->addSubNode('extra', 'patches', $patches)) {
+            $this->writeContents($manipulator->getContents());
+
+            return;
         }
 
-        $newline = str_ends_with($contents, "\r\n") ? "\r\n" : "\n";
+        // The manipulator could not match the file; re-encode it while keeping
+        // empty objects as objects.
+        $data = json_decode($contents);
 
-        if (file_put_contents($this->composerJsonPath, $encoded . $newline) === false) {
+        if (!$data instanceof stdClass) {
+            throw new RuntimeException(sprintf('The file %s does not contain valid JSON.', $this->composerJsonPath));
+        }
+
+        if (!isset($data->extra) || !$data->extra instanceof stdClass) {
+            $data->extra = new stdClass();
+        }
+
+        $data->extra->patches = $patches;
+        $newline = str_contains($contents, "\r\n") ? "\r\n" : "\n";
+
+        $this->writeContents(str_replace("\n", $newline, JsonFile::encode($data)) . $newline);
+    }
+
+    private function writeContents(string $contents): void
+    {
+        if (file_put_contents($this->composerJsonPath, $contents) === false) {
             throw new RuntimeException(sprintf('Unable to write %s.', $this->composerJsonPath));
         }
     }
