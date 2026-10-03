@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: PHP ${{ matrix.php }} (${{ matrix.dependencies }} dependencies)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.2', '8.3', '8.4']
+        dependencies: ['highest']
+        include:
+          # Oldest versions allowed by composer.json, including the Composer
+          # binary the integration tests run the plugin in.
+          - php: '8.1'
+            dependencies: 'lowest'
+            composer: '2.3.0'
+          # What contributors get from the committed composer.lock.
+          - php: '8.3'
+            dependencies: 'locked'
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v5
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:${{ matrix.composer || 'v2' }}
+
+      - name: Show Composer version
+        run: composer --version
+
+      - name: Validate composer.json
+        run: composer validate --no-check-publish
+
+      - name: Install dependencies
+        uses: ramsey/composer-install@v3
+        with:
+          dependency-versions: ${{ matrix.dependencies }}
+
+      - name: Run tests
+        run: vendor/bin/phpunit
