@@ -27,8 +27,9 @@ jobs:
           - php: '8.1'
             dependencies: 'lowest'
             composer: '2.3.0'
-          # What contributors get from the committed composer.lock.
-          - php: '8.3'
+          # What contributors get from the committed composer.lock, on the
+          # oldest supported PHP (the lock is resolved for PHP 8.1).
+          - php: '8.1'
             dependencies: 'locked'
 
     steps:

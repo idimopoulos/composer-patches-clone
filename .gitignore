@@ -1,6 +1,5 @@
 /vendor/
 /.phpunit.cache/
-/patches/
 
 /.idea/
 /.vscode/

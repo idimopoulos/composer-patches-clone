@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace PatchManager\Tests\Unit;
+namespace Idimopoulos\ComposerPatchesClone\Tests\Unit;
 
+use Idimopoulos\ComposerPatchesClone\Patch\PatchDownloader;
+use Idimopoulos\ComposerPatchesClone\Tests\Support\ComposerServices;
+use Idimopoulos\ComposerPatchesClone\Tests\Support\PatchServer;
 use InvalidArgumentException;
-use PatchManager\Patch\PatchDownloader;
-use PatchManager\Tests\Support\ComposerServices;
-use PatchManager\Tests\Support\PatchServer;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 

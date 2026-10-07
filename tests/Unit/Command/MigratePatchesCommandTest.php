@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PatchManager\Tests\Unit\Command;
+namespace Idimopoulos\ComposerPatchesClone\Tests\Unit\Command;
 
 use Symfony\Component\Console\Command\Command;
 
@@ -75,6 +75,74 @@ final class MigratePatchesCommandTest extends CommandTestCase
 
         self::assertSame($lockBefore, file_get_contents($this->lockPath()));
         self::assertStringNotContainsString('composer.lock', $tester->getDisplay());
+    }
+
+    public function testItMigratesPatchesInBothFiles(): void
+    {
+        $this->writeComposerJson(['extra' => [
+            'composer-patches' => ['patches-file' => 'patches/patches.json'],
+            'patches' => ['drupal/core' => ['In json' => $this->patchUrl('one/fix.patch')]],
+        ]]);
+        mkdir('patches');
+        file_put_contents('patches/patches.json', (string) json_encode([
+            'patches' => ['drupal/token' => ['In file' => $this->patchUrl('two/fix.patch')]],
+        ]));
+
+        $tester = $this->migrateCommand();
+        $tester->execute([]);
+
+        $tester->assertCommandIsSuccessful();
+        self::assertStringContainsString('Migrated 2 remote patch(es).', $tester->getDisplay());
+        self::assertSame(['In json' => 'resources/patch/drupal/core/fix.patch'], $this->patchesFor('drupal/core'));
+        self::assertSame(['In json' => $this->patchUrl('one/fix.patch')], $this->sourcesFor('drupal/core'));
+
+        $patchesFile = json_decode((string) file_get_contents('patches/patches.json'), true);
+        self::assertIsArray($patchesFile);
+        self::assertSame(['In file' => 'resources/patch/drupal/token/fix.patch'], $patchesFile['patches']['drupal/token']);
+        self::assertSame(['In file' => $this->patchUrl('two/fix.patch')], $patchesFile['patches-sources']['drupal/token']);
+        self::assertArrayNotHasKey('drupal/token', $this->readComposerJson()['extra']['patches-sources'] ?? []);
+    }
+
+    public function testMigratingOnlyThePatchesFileLeavesTheLockAlone(): void
+    {
+        $this->writeComposerJson(['extra' => ['patches-file' => 'composer.patches.json']]);
+        file_put_contents('composer.patches.json', (string) json_encode([
+            'patches' => ['drupal/core' => ['Fix' => $this->patchUrl('example.patch')]],
+        ]));
+        $this->writeLock('0123456789abcdef0123456789abcdef');
+        $lockBefore = file_get_contents($this->lockPath());
+
+        $tester = $this->migrateCommand();
+        $tester->execute([]);
+
+        $tester->assertCommandIsSuccessful();
+        self::assertSame($lockBefore, file_get_contents($this->lockPath()));
+        self::assertStringNotContainsString('composer.lock', $tester->getDisplay());
+    }
+
+    public function testItTellsComposerPatches2UsersToRelockAfterMigrating(): void
+    {
+        $this->writeComposerJson([
+            'extra' => ['patches' => ['drupal/core' => ['Fix' => $this->patchUrl('example.patch')]]],
+        ]);
+        file_put_contents('patches.lock.json', "{}\n");
+
+        $tester = $this->migrateCommand();
+        $tester->execute([]);
+
+        $tester->assertCommandIsSuccessful();
+        self::assertStringContainsString('composer patches-relock', $tester->getDisplay());
+    }
+
+    public function testItDoesNotAskToRelockWhenNothingWasMigrated(): void
+    {
+        $this->writeComposerJson(['name' => 'example/project']);
+        file_put_contents('patches.lock.json', "{}\n");
+
+        $tester = $this->migrateCommand();
+        $tester->execute([]);
+
+        self::assertStringNotContainsString('patches-relock', $tester->getDisplay());
     }
 
     public function testItLeavesLocalAndNonHttpEntriesUntouched(): void

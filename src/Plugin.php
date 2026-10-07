@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace PatchManager;
+namespace Idimopoulos\ComposerPatchesClone;
 
 use Composer\Composer;
 use Composer\IO\IOInterface;
-use Composer\Plugin\Capable;
 use Composer\Plugin\Capability\CommandProvider as CommandProviderCapability;
+use Composer\Plugin\Capable;
 use Composer\Plugin\PluginInterface;
 
 final class Plugin implements PluginInterface, Capable

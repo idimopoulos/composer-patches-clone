@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PatchManager\Tests\Unit\Command;
+namespace Idimopoulos\ComposerPatchesClone\Tests\Unit\Command;
 
 use InvalidArgumentException;
 use RuntimeException;
@@ -130,6 +130,122 @@ final class ClonePatchCommandTest extends CommandTestCase
         $tester->assertCommandIsSuccessful();
         self::assertFileDoesNotExist($this->lockPath());
         self::assertStringNotContainsString('composer.lock', $tester->getDisplay());
+    }
+
+    public function testItAddsNewPatchesToThePatchesFile(): void
+    {
+        $this->writeComposerJson(['require' => ['drupal/core' => '^11'], 'extra' => ['patches-file' => 'composer.patches.json']]);
+        file_put_contents('composer.patches.json', "{\n    \"patches\": {}\n}\n");
+        $this->writeLock();
+        $composerJsonBefore = file_get_contents($this->composerJsonPath());
+        $lockBefore = file_get_contents($this->lockPath());
+
+        $tester = $this->cloneCommand();
+        $tester->execute([
+            'package' => 'drupal/core',
+            'url' => $this->patchUrl('example.patch'),
+            '--description' => 'Fix',
+        ]);
+
+        $tester->assertCommandIsSuccessful();
+        self::assertStringContainsString('composer.patches.json updated', $tester->getDisplay());
+        self::assertSame($composerJsonBefore, file_get_contents($this->composerJsonPath()));
+        self::assertSame($lockBefore, file_get_contents($this->lockPath()));
+
+        $patchesFile = json_decode((string) file_get_contents('composer.patches.json'), true);
+        self::assertIsArray($patchesFile);
+        self::assertSame(['Fix' => 'resources/patch/drupal/core/example.patch'], $patchesFile['patches']['drupal/core']);
+        self::assertSame(['Fix' => $this->patchUrl('example.patch')], $patchesFile['patches-sources']['drupal/core']);
+    }
+
+    public function testItUpdatesAPatchWhereItIsDefined(): void
+    {
+        $this->writeComposerJson(['extra' => [
+            'patches-file' => 'composer.patches.json',
+            'patches' => ['drupal/token' => ['Other' => 'patches/other.patch']],
+        ]]);
+        file_put_contents('composer.patches.json', (string) json_encode([
+            'patches' => ['drupal/core' => ['Fix' => 'https://example.com/old.patch']],
+        ]));
+
+        $this->cloneCommand()->execute([
+            'package' => 'drupal/core',
+            'url' => $this->patchUrl('example.patch'),
+            '--description' => 'Fix',
+        ]);
+
+        $patchesFile = json_decode((string) file_get_contents('composer.patches.json'), true);
+        self::assertIsArray($patchesFile);
+        self::assertSame(['Fix' => 'resources/patch/drupal/core/example.patch'], $patchesFile['patches']['drupal/core']);
+        self::assertSame(['drupal/token' => ['Other' => 'patches/other.patch']], $this->readComposerJson()['extra']['patches']);
+    }
+
+    public function testItRefusesToEditTheExpandedFormatAndChangesNothing(): void
+    {
+        $this->writeComposerJson(['extra' => ['patches-file' => 'composer.patches.json']]);
+        $patchesFile = (string) json_encode([
+            'patches' => ['drupal/core' => [['description' => 'Existing', 'url' => 'https://example.com/a.patch']]],
+        ]);
+        file_put_contents('composer.patches.json', $patchesFile);
+
+        try {
+            $this->cloneCommand()->execute([
+                'package' => 'drupal/core',
+                'url' => $this->patchUrl('example.patch'),
+                '--description' => 'New',
+            ]);
+            self::fail('Expected the expanded format to be rejected.');
+        } catch (\RuntimeException $exception) {
+            self::assertStringContainsString('expanded patch format', $exception->getMessage());
+        }
+
+        self::assertSame($patchesFile, file_get_contents('composer.patches.json'));
+        self::assertFileDoesNotExist($this->projectFile('resources/patch/drupal/core/example.patch'));
+    }
+
+    public function testItRefusesWhenTheSamePatchIsDefinedInExpandedFormatInAnotherFile(): void
+    {
+        $this->writeComposerJson(['extra' => ['patches' => ['drupal/token' => ['Other' => 'patches/other.patch']]]]);
+        $composerJsonBefore = file_get_contents($this->composerJsonPath());
+        file_put_contents('patches.json', (string) json_encode([
+            'patches' => ['drupal/core' => [['description' => 'Fix', 'url' => 'https://example.com/fix.patch']]],
+        ]));
+
+        try {
+            $this->cloneCommand()->execute([
+                'package' => 'drupal/core',
+                'url' => $this->patchUrl('example.patch'),
+                '--description' => 'Fix',
+            ]);
+            self::fail('Expected the expanded definition to be found and refused.');
+        } catch (\RuntimeException $exception) {
+            self::assertStringContainsString('expanded patch format in patches.json', $exception->getMessage());
+        }
+
+        self::assertSame($composerJsonBefore, file_get_contents($this->composerJsonPath()));
+    }
+
+    public function testItTellsComposerPatches2UsersToRelock(): void
+    {
+        $this->writeComposerJson([]);
+        file_put_contents('patches.lock.json', "{}\n");
+
+        $tester = $this->cloneCommand();
+        $tester->execute(['package' => 'drupal/core', 'url' => $this->patchUrl('example.patch')]);
+
+        $tester->assertCommandIsSuccessful();
+        self::assertStringContainsString('composer patches-relock', $tester->getDisplay());
+        self::assertStringContainsString('composer patches-repatch', $tester->getDisplay());
+    }
+
+    public function testItDoesNotMentionRelockingWithoutAPatchesLock(): void
+    {
+        $this->writeComposerJson([]);
+
+        $tester = $this->cloneCommand();
+        $tester->execute(['package' => 'drupal/core', 'url' => $this->patchUrl('example.patch')]);
+
+        self::assertStringNotContainsString('patches-relock', $tester->getDisplay());
     }
 
     public function testItDoesNotOverwriteAnotherPatchWithTheSameFilename(): void
