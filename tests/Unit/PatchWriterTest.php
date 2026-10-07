@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace PatchManager\Tests\Unit;
 
 use PatchManager\Patch\PatchWriter;
+use PatchManager\Tests\Support\Filesystem;
 use PHPUnit\Framework\TestCase;
 
 final class PatchWriterTest extends TestCase
@@ -18,7 +19,7 @@ final class PatchWriterTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->deleteDirectory($this->projectRoot);
+        Filesystem::removeDirectory($this->projectRoot);
     }
 
     public function testItWritesPatchUsingUrlBasename(): void
@@ -84,35 +85,5 @@ final class PatchWriterTest extends TestCase
         );
 
         self::assertSame('resources/patch/drupal/drupal/core/custom-name.patch', $path);
-    }
-
-    private function deleteDirectory(string $directory): void
-    {
-        if (!is_dir($directory)) {
-            return;
-        }
-
-        $items = scandir($directory);
-
-        if ($items === false) {
-            return;
-        }
-
-        foreach ($items as $item) {
-            if ($item === '.' || $item === '..') {
-                continue;
-            }
-
-            $path = $directory . DIRECTORY_SEPARATOR . $item;
-
-            if (is_dir($path) && !is_link($path)) {
-                $this->deleteDirectory($path);
-                continue;
-            }
-
-            @unlink($path);
-        }
-
-        @rmdir($directory);
     }
 }

@@ -54,8 +54,12 @@ Or run commands directly:
 
 ```bash
 docker compose run --rm php composer install
-docker compose run --rm php vendor/bin/phpunit
+docker compose run --rm php composer test
 ```
+
+`composer test:unit` runs only the fast unit tests. `composer test:integration` runs the end-to-end tests, which call a real `composer` binary and need network access to Packagist.
+
+`composer.lock` is resolved for PHP 8.1 (`config.platform.php`), so it installs on every supported PHP version.
 
 ## Notes
 
@@ -72,3 +76,7 @@ docker compose run --rm php vendor/bin/phpunit
 ## Continuous Integration
 
 Every pull request runs the test suite on GitHub Actions (`.github/workflows/ci.yml`). The jobs cover PHP 8.1 to 8.4 with the newest allowed dependencies, PHP 8.1 with the oldest allowed dependencies and Composer 2.3, and PHP 8.3 with the committed `composer.lock`.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

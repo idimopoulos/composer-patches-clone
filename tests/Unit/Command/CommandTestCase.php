@@ -14,6 +14,7 @@ use PatchManager\Composer\LockHashUpdater;
 use PatchManager\Patch\PatchDownloader;
 use PatchManager\Patch\PatchWriter;
 use PatchManager\Tests\Support\ComposerServices;
+use PatchManager\Tests\Support\Filesystem;
 use PatchManager\Tests\Support\PatchServer;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
@@ -47,7 +48,7 @@ abstract class CommandTestCase extends TestCase
 
     protected function tearDown(): void
     {
-        $this->deleteDirectory($this->projectRoot);
+        Filesystem::removeDirectory($this->projectRoot);
     }
 
     protected function patchUrl(string $path): string
@@ -179,29 +180,5 @@ abstract class CommandTestCase extends TestCase
     protected function composerJsonPath(): string
     {
         return $this->projectRoot . DIRECTORY_SEPARATOR . 'composer.json';
-    }
-
-    private function deleteDirectory(string $directory): void
-    {
-        if (!is_dir($directory)) {
-            return;
-        }
-
-        foreach (scandir($directory) ?: [] as $item) {
-            if ($item === '.' || $item === '..') {
-                continue;
-            }
-
-            $path = $directory . DIRECTORY_SEPARATOR . $item;
-
-            if (is_dir($path) && !is_link($path)) {
-                $this->deleteDirectory($path);
-                continue;
-            }
-
-            @unlink($path);
-        }
-
-        @rmdir($directory);
     }
 }
