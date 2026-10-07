@@ -7,6 +7,7 @@ namespace Idimopoulos\ComposerPatchesClone\Command;
 use Composer\Command\BaseCommand;
 use Idimopoulos\ComposerPatchesClone\Composer\ComposerJsonUpdater;
 use Idimopoulos\ComposerPatchesClone\Composer\LockHashUpdater;
+use Idimopoulos\ComposerPatchesClone\Composer\PatchConfig;
 use Idimopoulos\ComposerPatchesClone\Patch\PatchDownloader;
 use Idimopoulos\ComposerPatchesClone\Patch\PatchWriter;
 use Idimopoulos\ComposerPatchesClone\Patch\RemoteUrl;
@@ -20,7 +21,7 @@ final class MigratePatchesCommand extends BaseCommand
     public function __construct(
         private readonly PatchDownloader $patchDownloader,
         private readonly PatchWriter $patchWriter,
-        private readonly ComposerJsonUpdater $composerJsonUpdater,
+        private readonly PatchConfig $patchConfig,
         private readonly LockHashUpdater $lockHashUpdater
     ) {
         parent::__construct();
@@ -37,9 +38,50 @@ final class MigratePatchesCommand extends BaseCommand
     {
         $migratedCount = 0;
         $failedCount = 0;
+        $composerJsonChanged = false;
         $lockWasFresh = $this->lockHashUpdater->wasFresh();
 
-        foreach ($this->composerJsonUpdater->getPatches() as $package => $patches) {
+        foreach ($this->patchConfig->stores() as $store) {
+            [$migrated, $failed] = $this->migrateStore($store, $output);
+            $migratedCount += $migrated;
+            $failedCount += $failed;
+            $composerJsonChanged = $composerJsonChanged || ($migrated > 0 && $store === $this->patchConfig->composerJson());
+        }
+
+        // Only composer.json feeds the lock's content-hash.
+        if ($composerJsonChanged) {
+            $this->writeLockMessage($output, $this->lockHashUpdater->sync($lockWasFresh));
+        }
+
+        if ($migratedCount === 0 && $failedCount === 0) {
+            $output->writeln('No remote patches found.');
+
+            return self::SUCCESS;
+        }
+
+        if ($failedCount > 0) {
+            $output->writeln(sprintf('Migrated %d remote patch(es), %d failed.', $migratedCount, $failedCount));
+
+            return self::FAILURE;
+        }
+
+        $output->writeln(sprintf('Migrated %d remote patch(es).', $migratedCount));
+
+        return self::SUCCESS;
+    }
+
+    /**
+     * Migrates the remote patches of one file.
+     *
+     * @return array{0: int, 1: int}
+     *   The number of migrated and failed patches.
+     */
+    private function migrateStore(ComposerJsonUpdater $store, OutputInterface $output): array
+    {
+        $migratedCount = 0;
+        $failedCount = 0;
+
+        foreach ($store->getPatches() as $package => $patches) {
             if (!is_array($patches)) {
                 $output->writeln(sprintf('<comment>Skipped %s: patch definitions must be an object of description => path.</comment>', $package));
                 continue;
@@ -64,32 +106,14 @@ final class MigratePatchesCommand extends BaseCommand
                     continue;
                 }
 
-                $this->composerJsonUpdater->replacePatch($package, $description, $localPath, $path);
+                $store->replacePatch($package, $description, $localPath, $path);
 
                 $output->writeln(sprintf('Migrated %s: %s -> %s', $package, $description, $localPath));
                 $migratedCount++;
             }
         }
 
-        if ($migratedCount > 0) {
-            $this->writeLockMessage($output, $this->lockHashUpdater->sync($lockWasFresh));
-        }
-
-        if ($migratedCount === 0 && $failedCount === 0) {
-            $output->writeln('No remote patches found.');
-
-            return self::SUCCESS;
-        }
-
-        if ($failedCount > 0) {
-            $output->writeln(sprintf('Migrated %d remote patch(es), %d failed.', $migratedCount, $failedCount));
-
-            return self::FAILURE;
-        }
-
-        $output->writeln(sprintf('Migrated %d remote patch(es).', $migratedCount));
-
-        return self::SUCCESS;
+        return [$migratedCount, $failedCount];
     }
 
     private function writeLockMessage(OutputInterface $output, ?string $message): void

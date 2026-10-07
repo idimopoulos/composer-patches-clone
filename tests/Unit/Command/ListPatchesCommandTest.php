@@ -110,6 +110,7 @@ final class ListPatchesCommandTest extends CommandTestCase
                     'source' => 'https://www.drupal.org/files/issues/fix.patch',
                     'remote' => false,
                     'exists' => true,
+                    'file' => 'composer.json',
                 ],
                 [
                     'package' => 'drupal/core',
@@ -118,6 +119,7 @@ final class ListPatchesCommandTest extends CommandTestCase
                     'source' => 'https://example.com/remote.patch',
                     'remote' => true,
                     'exists' => true,
+                    'file' => 'composer.json',
                 ],
             ],
             $rows
@@ -152,6 +154,29 @@ final class ListPatchesCommandTest extends CommandTestCase
                 ['drupal/token', 'Cloned', $this->patchUrl('one/fix.patch')],
             ],
             array_map(static fn (array $row): array => [$row['package'], $row['description'], $row['source']], $rows)
+        );
+    }
+
+    public function testItListsPatchesFromThePatchesFile(): void
+    {
+        $this->writeComposerJson(['extra' => [
+            'patches-file' => 'composer.patches.json',
+            'patches' => ['drupal/core' => ['In composer.json' => 'resources/patch/drupal/core/fix.patch']],
+            'patches-sources' => ['drupal/core' => ['In composer.json' => 'https://www.drupal.org/files/issues/fix.patch']],
+        ]]);
+        file_put_contents('composer.patches.json', (string) json_encode([
+            'patches' => ['drupal/token' => ['In patches file' => 'patches/token.patch']],
+            'patches-sources' => ['drupal/token' => ['In patches file' => 'https://example.com/token.patch']],
+        ]));
+
+        $rows = $this->listAsJson([]);
+
+        self::assertSame(
+            [
+                ['drupal/core', 'In composer.json', 'composer.json', 'https://www.drupal.org/files/issues/fix.patch'],
+                ['drupal/token', 'In patches file', 'composer.patches.json', 'https://example.com/token.patch'],
+            ],
+            array_map(static fn (array $row): array => [$row['package'], $row['description'], $row['file'], $row['source']], $rows)
         );
     }
 

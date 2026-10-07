@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Idimopoulos\ComposerPatchesClone\Command;
 
 use Composer\Command\BaseCommand;
-use Idimopoulos\ComposerPatchesClone\Composer\ComposerJsonUpdater;
+use Idimopoulos\ComposerPatchesClone\Composer\PatchConfig;
 use Idimopoulos\ComposerPatchesClone\Patch\RemoteUrl;
 use InvalidArgumentException;
 use Symfony\Component\Console\Helper\Table;
@@ -18,7 +18,7 @@ final class ListPatchesCommand extends BaseCommand
 {
     public function __construct(
         private readonly string $projectRoot,
-        private readonly ComposerJsonUpdater $composerJsonUpdater
+        private readonly PatchConfig $patchConfig
     ) {
         parent::__construct();
     }
@@ -78,33 +78,38 @@ final class ListPatchesCommand extends BaseCommand
     }
 
     /**
-     * @return list<array{package: string, description: string, path: string, source: ?string, remote: bool, exists: bool}>
+     * @return list<array{package: string, description: string, path: string, source: ?string, remote: bool, exists: bool, file: string}>
      */
     private function collectRows(?string $filter): array
     {
-        $sources = $this->composerJsonUpdater->getSources();
         $rows = [];
 
-        foreach ($this->composerJsonUpdater->getPatches() as $package => $patches) {
-            if (!is_array($patches) || ($filter !== null && !fnmatch($filter, strtolower($package)))) {
-                continue;
-            }
+        foreach ($this->patchConfig->stores() as $store) {
+            $sources = $store->getSources();
+            $file = $store === $this->patchConfig->composerJson() ? basename($store->getPath()) : $store->getPath();
 
-            foreach ($patches as $description => $path) {
-                if (!is_string($description) || !is_string($path)) {
+            foreach ($store->getPatches() as $package => $patches) {
+                if (!is_array($patches) || ($filter !== null && !fnmatch($filter, strtolower($package)))) {
                     continue;
                 }
 
-                $remote = RemoteUrl::isRemote($path);
+                foreach ($patches as $description => $path) {
+                    if (!is_string($description) || !is_string($path)) {
+                        continue;
+                    }
 
-                $rows[] = [
-                    'package' => $package,
-                    'description' => $description,
-                    'path' => $path,
-                    'source' => $remote ? $path : ($sources[$package][$description] ?? null),
-                    'remote' => $remote,
-                    'exists' => $remote || is_file($this->resolvePath($path)),
-                ];
+                    $remote = RemoteUrl::isRemote($path);
+
+                    $rows[] = [
+                        'package' => $package,
+                        'description' => $description,
+                        'path' => $path,
+                        'source' => $remote ? $path : ($sources[$package][$description] ?? null),
+                        'remote' => $remote,
+                        'exists' => $remote || is_file($this->resolvePath($path)),
+                        'file' => $file,
+                    ];
+                }
             }
         }
 

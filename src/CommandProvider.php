@@ -13,8 +13,8 @@ use Composer\Util\HttpDownloader;
 use Idimopoulos\ComposerPatchesClone\Command\ClonePatchCommand;
 use Idimopoulos\ComposerPatchesClone\Command\ListPatchesCommand;
 use Idimopoulos\ComposerPatchesClone\Command\MigratePatchesCommand;
-use Idimopoulos\ComposerPatchesClone\Composer\ComposerJsonUpdater;
 use Idimopoulos\ComposerPatchesClone\Composer\LockHashUpdater;
+use Idimopoulos\ComposerPatchesClone\Composer\PatchConfig;
 use Idimopoulos\ComposerPatchesClone\Patch\PatchDownloader;
 use Idimopoulos\ComposerPatchesClone\Patch\PatchWriter;
 
@@ -41,6 +41,7 @@ final class CommandProvider implements CommandProviderCapability
         // the path is relative to the working directory, as Composer uses it.
         $composerFile = Factory::getComposerFile();
         $patchDownloader = new PatchDownloader($this->httpDownloader());
+        $patchConfig = new PatchConfig($composerFile);
         $lockHashUpdater = new LockHashUpdater(
             $composerFile,
             $this->lockEnabled() ? Factory::getLockFile($composerFile) : null
@@ -50,18 +51,18 @@ final class CommandProvider implements CommandProviderCapability
             new ClonePatchCommand(
                 $patchDownloader,
                 new PatchWriter($projectRoot),
-                new ComposerJsonUpdater($composerFile),
+                $patchConfig,
                 $lockHashUpdater
             ),
             new MigratePatchesCommand(
                 $patchDownloader,
                 new PatchWriter($projectRoot),
-                new ComposerJsonUpdater($composerFile),
+                $patchConfig,
                 $lockHashUpdater
             ),
             new ListPatchesCommand(
                 $projectRoot,
-                new ComposerJsonUpdater($composerFile)
+                $patchConfig
             ),
         ];
     }

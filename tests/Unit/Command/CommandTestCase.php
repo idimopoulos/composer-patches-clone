@@ -9,8 +9,8 @@ use Composer\Package\Locker;
 use Idimopoulos\ComposerPatchesClone\Command\ClonePatchCommand;
 use Idimopoulos\ComposerPatchesClone\Command\ListPatchesCommand;
 use Idimopoulos\ComposerPatchesClone\Command\MigratePatchesCommand;
-use Idimopoulos\ComposerPatchesClone\Composer\ComposerJsonUpdater;
 use Idimopoulos\ComposerPatchesClone\Composer\LockHashUpdater;
+use Idimopoulos\ComposerPatchesClone\Composer\PatchConfig;
 use Idimopoulos\ComposerPatchesClone\Patch\PatchDownloader;
 use Idimopoulos\ComposerPatchesClone\Patch\PatchWriter;
 use Idimopoulos\ComposerPatchesClone\Tests\Support\ComposerServices;
@@ -28,6 +28,7 @@ abstract class CommandTestCase extends TestCase
     private static ?PatchServer $patchServer = null;
 
     protected string $projectRoot;
+    private string $previousCwd;
 
     public static function setUpBeforeClass(): void
     {
@@ -44,10 +45,14 @@ abstract class CommandTestCase extends TestCase
     {
         $this->projectRoot = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'patch-command-' . uniqid('', true);
         mkdir($this->projectRoot, 0777, true);
+        // Composer runs commands from the project root; relative paths depend on it.
+        $this->previousCwd = (string) getcwd();
+        chdir($this->projectRoot);
     }
 
     protected function tearDown(): void
     {
+        chdir($this->previousCwd);
         Filesystem::removeDirectory($this->projectRoot);
     }
 
@@ -103,7 +108,7 @@ abstract class CommandTestCase extends TestCase
         return $this->tester(new ClonePatchCommand(
             new PatchDownloader(ComposerServices::httpDownloader()),
             new PatchWriter($this->projectRoot),
-            new ComposerJsonUpdater($this->composerJsonPath()),
+            new PatchConfig($this->composerJsonPath()),
             $this->lockHashUpdater()
         ));
     }
@@ -113,7 +118,7 @@ abstract class CommandTestCase extends TestCase
         return $this->tester(new MigratePatchesCommand(
             new PatchDownloader(ComposerServices::httpDownloader()),
             new PatchWriter($this->projectRoot),
-            new ComposerJsonUpdater($this->composerJsonPath()),
+            new PatchConfig($this->composerJsonPath()),
             $this->lockHashUpdater()
         ));
     }
@@ -122,7 +127,7 @@ abstract class CommandTestCase extends TestCase
     {
         return $this->tester(new ListPatchesCommand(
             $this->projectRoot,
-            new ComposerJsonUpdater($this->composerJsonPath())
+            new PatchConfig($this->composerJsonPath())
         ));
     }
 

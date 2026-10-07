@@ -15,6 +15,14 @@ It helps turn remote patch definitions into local patch files that live in your 
 - `composer patches:list [package] [--format=table|json]`  
   List configured patches with their local path and the URL they were downloaded from. Filter by package, using wildcards if needed (`drupal/*`).
 
+## Patches files
+
+Patches kept in a separate file are supported too: `extra.patches-file` (cweagans/composer-patches 1.x), `extra.composer-patches.patches-file` (2.x), or a `patches.json` in the project root (the 2.x default).
+
+- `patches:migrate` and `patches:list` cover both `composer.json` and the patches file.
+- `patches:clone` updates a patch where it is already defined. New patches go to the patches file when `composer.json` has no `extra.patches` of its own, and to `composer.json` otherwise.
+- Source URLs for patches in the patches file are stored in that file, under a top-level `patches-sources` key. cweagans/composer-patches only reads `patches`, so the extra key is ignored there.
+
 ## Source URLs
 
 `patches:clone` and `patches:migrate` record where each patch came from in `extra.patches-sources`, keyed the same way as `extra.patches`:

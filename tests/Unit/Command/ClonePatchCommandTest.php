@@ -132,6 +132,54 @@ final class ClonePatchCommandTest extends CommandTestCase
         self::assertStringNotContainsString('composer.lock', $tester->getDisplay());
     }
 
+    public function testItAddsNewPatchesToThePatchesFile(): void
+    {
+        $this->writeComposerJson(['require' => ['drupal/core' => '^11'], 'extra' => ['patches-file' => 'composer.patches.json']]);
+        file_put_contents('composer.patches.json', "{\n    \"patches\": {}\n}\n");
+        $this->writeLock();
+        $composerJsonBefore = file_get_contents($this->composerJsonPath());
+        $lockBefore = file_get_contents($this->lockPath());
+
+        $tester = $this->cloneCommand();
+        $tester->execute([
+            'package' => 'drupal/core',
+            'url' => $this->patchUrl('example.patch'),
+            '--description' => 'Fix',
+        ]);
+
+        $tester->assertCommandIsSuccessful();
+        self::assertStringContainsString('composer.patches.json updated', $tester->getDisplay());
+        self::assertSame($composerJsonBefore, file_get_contents($this->composerJsonPath()));
+        self::assertSame($lockBefore, file_get_contents($this->lockPath()));
+
+        $patchesFile = json_decode((string) file_get_contents('composer.patches.json'), true);
+        self::assertIsArray($patchesFile);
+        self::assertSame(['Fix' => 'resources/patch/drupal/core/example.patch'], $patchesFile['patches']['drupal/core']);
+        self::assertSame(['Fix' => $this->patchUrl('example.patch')], $patchesFile['patches-sources']['drupal/core']);
+    }
+
+    public function testItUpdatesAPatchWhereItIsDefined(): void
+    {
+        $this->writeComposerJson(['extra' => [
+            'patches-file' => 'composer.patches.json',
+            'patches' => ['drupal/token' => ['Other' => 'patches/other.patch']],
+        ]]);
+        file_put_contents('composer.patches.json', (string) json_encode([
+            'patches' => ['drupal/core' => ['Fix' => 'https://example.com/old.patch']],
+        ]));
+
+        $this->cloneCommand()->execute([
+            'package' => 'drupal/core',
+            'url' => $this->patchUrl('example.patch'),
+            '--description' => 'Fix',
+        ]);
+
+        $patchesFile = json_decode((string) file_get_contents('composer.patches.json'), true);
+        self::assertIsArray($patchesFile);
+        self::assertSame(['Fix' => 'resources/patch/drupal/core/example.patch'], $patchesFile['patches']['drupal/core']);
+        self::assertSame(['drupal/token' => ['Other' => 'patches/other.patch']], $this->readComposerJson()['extra']['patches']);
+    }
+
     public function testItDoesNotOverwriteAnotherPatchWithTheSameFilename(): void
     {
         $this->writeComposerJson([]);

@@ -9,13 +9,46 @@ use Composer\Json\JsonManipulator;
 use RuntimeException;
 use stdClass;
 
+/**
+ * Reads and writes patch definitions in a JSON file.
+ *
+ * In composer.json they live under "extra"; in a cweagans patches file
+ * ("patches-file") they live at the root of the file.
+ */
 final class ComposerJsonUpdater
 {
     public const SOURCES_KEY = 'patches-sources';
 
     public function __construct(
-        private readonly string $composerJsonPath
+        private readonly string $composerJsonPath,
+        private readonly bool $patchesAtRoot = false
     ) {
+    }
+
+    public static function forPatchesFile(string $path): self
+    {
+        return new self($path, true);
+    }
+
+    public function getPath(): string
+    {
+        return $this->composerJsonPath;
+    }
+
+    /**
+     * Returns the "extra" section of the file (empty for a patches file).
+     *
+     * @return array<string, mixed>
+     */
+    public function getExtra(): array
+    {
+        if ($this->patchesAtRoot) {
+            return [];
+        }
+
+        $extra = $this->readData()['extra'] ?? [];
+
+        return is_array($extra) ? $extra : [];
     }
 
     public function addPatch(string $package, string $description, string $path): void
@@ -30,15 +63,13 @@ final class ComposerJsonUpdater
     }
 
     /**
-     * Returns extra.patches as written; entries are not guaranteed to be strings.
+     * Returns the patches as written; entries are not guaranteed to be strings.
      *
      * @return array<string, mixed>
      */
     public function getPatches(): array
     {
-        $data = $this->readData();
-
-        $patches = $data['extra']['patches'] ?? [];
+        $patches = $this->patchNode()['patches'] ?? [];
 
         if (!is_array($patches)) {
             return [];
@@ -65,14 +96,13 @@ final class ComposerJsonUpdater
     }
 
     /**
-     * Returns extra.patches-sources: package => description => source URL.
+     * Returns patches-sources: package => description => source URL.
      *
      * @return array<string, array<string, string>>
      */
     public function getSources(): array
     {
-        $data = $this->readData();
-        $sources = $data['extra'][self::SOURCES_KEY] ?? [];
+        $sources = $this->patchNode()[self::SOURCES_KEY] ?? [];
 
         if (!is_array($sources)) {
             return [];
@@ -113,7 +143,25 @@ final class ComposerJsonUpdater
             $nodes[self::SOURCES_KEY] = $sources;
         }
 
-        $this->writeExtra($nodes);
+        $this->writeNodes($nodes);
+    }
+
+    /**
+     * The object holding "patches": "extra" in composer.json, the root of a patches file.
+     *
+     * @return array<string, mixed>
+     */
+    private function patchNode(): array
+    {
+        $data = $this->readData();
+
+        if ($this->patchesAtRoot) {
+            return $data;
+        }
+
+        $extra = $data['extra'] ?? [];
+
+        return is_array($extra) ? $extra : [];
     }
 
     /**
@@ -142,18 +190,20 @@ final class ComposerJsonUpdater
     }
 
     /**
-     * Writes the given extra.* nodes while leaving the rest of the file untouched.
+     * Writes the given nodes while leaving the rest of the file untouched.
      *
      * @param array<string, array<string, mixed>> $nodes
      */
-    private function writeExtra(array $nodes): void
+    private function writeNodes(array $nodes): void
     {
         $contents = $this->readContents();
         $manipulator = new JsonManipulator($contents);
         $manipulated = true;
 
         foreach ($nodes as $name => $value) {
-            $manipulated = $manipulated && $manipulator->addSubNode('extra', $name, $value);
+            $manipulated = $manipulated && ($this->patchesAtRoot
+                ? $manipulator->addMainKey($name, $value)
+                : $manipulator->addSubNode('extra', $name, $value));
         }
 
         if ($manipulated) {
@@ -170,12 +220,14 @@ final class ComposerJsonUpdater
             throw new RuntimeException(sprintf('The file %s does not contain valid JSON.', $this->composerJsonPath));
         }
 
-        if (!isset($data->extra) || !$data->extra instanceof stdClass) {
+        if (!$this->patchesAtRoot && (!isset($data->extra) || !$data->extra instanceof stdClass)) {
             $data->extra = new stdClass();
         }
 
+        $target = $this->patchesAtRoot ? $data : $data->extra;
+
         foreach ($nodes as $name => $value) {
-            $data->extra->{$name} = $value;
+            $target->{$name} = $value;
         }
 
         $newline = str_contains($contents, "\r\n") ? "\r\n" : "\n";
