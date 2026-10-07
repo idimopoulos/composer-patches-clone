@@ -203,6 +203,28 @@ final class ClonePatchCommandTest extends CommandTestCase
         self::assertFileDoesNotExist($this->projectFile('resources/patch/drupal/core/example.patch'));
     }
 
+    public function testItRefusesWhenTheSamePatchIsDefinedInExpandedFormatInAnotherFile(): void
+    {
+        $this->writeComposerJson(['extra' => ['patches' => ['drupal/token' => ['Other' => 'patches/other.patch']]]]);
+        $composerJsonBefore = file_get_contents($this->composerJsonPath());
+        file_put_contents('patches.json', (string) json_encode([
+            'patches' => ['drupal/core' => [['description' => 'Fix', 'url' => 'https://example.com/fix.patch']]],
+        ]));
+
+        try {
+            $this->cloneCommand()->execute([
+                'package' => 'drupal/core',
+                'url' => $this->patchUrl('example.patch'),
+                '--description' => 'Fix',
+            ]);
+            self::fail('Expected the expanded definition to be found and refused.');
+        } catch (\RuntimeException $exception) {
+            self::assertStringContainsString('expanded patch format in patches.json', $exception->getMessage());
+        }
+
+        self::assertSame($composerJsonBefore, file_get_contents($this->composerJsonPath()));
+    }
+
     public function testItTellsComposerPatches2UsersToRelock(): void
     {
         $this->writeComposerJson([]);

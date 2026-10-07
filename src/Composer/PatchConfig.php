@@ -193,7 +193,22 @@ final class PatchConfig
     {
         $patches = $store->getPatches()[$package] ?? null;
 
-        return is_array($patches) && array_key_exists($description, $patches);
+        if (!is_array($patches)) {
+            return false;
+        }
+
+        if (array_key_exists($description, $patches)) {
+            return true;
+        }
+
+        // The 2.x expanded format keeps the description inside each record.
+        foreach ($patches as $record) {
+            if (is_array($record) && ($record['description'] ?? null) === $description) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function createPatchesFile(string $path): void
