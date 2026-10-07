@@ -39,9 +39,12 @@ abstract class ComposerTestCase extends TestCase
         parent::tearDown();
     }
 
-    protected function runComposer(string $command): string
+    /**
+     * @param array<string, string> $env
+     */
+    protected function runComposer(string $command, array $env = []): string
     {
-        $process = $this->createComposerProcess($command);
+        $process = $this->createComposerProcess($command, $env);
         $process->run();
 
         $this->assertComposerSuccess($process);
@@ -81,12 +84,15 @@ abstract class ComposerTestCase extends TestCase
         return dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Fixtures' . DIRECTORY_SEPARATOR . 'test-project';
     }
 
-    private function createComposerProcess(string $command): Process
+    /**
+     * @param array<string, string> $env
+     */
+    private function createComposerProcess(string $command, array $env = []): Process
     {
         return Process::fromShellCommandline(
             'composer ' . $command,
             $this->workingDirectory,
-            ['COMPOSER_ALLOW_SUPERUSER' => '1']
+            $env + ['COMPOSER_ALLOW_SUPERUSER' => '1']
         );
     }
 

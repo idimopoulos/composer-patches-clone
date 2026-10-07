@@ -38,4 +38,32 @@ final class PatchCloneTest extends ComposerTestCase
             $composerJson
         );
     }
+
+    public function testPatchCloneUsesComposerAuthentication(): void
+    {
+        $this->startPatchServer();
+        $url = $this->patchUrl('private/secret.patch');
+        $origin = parse_url($url, PHP_URL_HOST) . ':' . parse_url($url, PHP_URL_PORT);
+        $auth = json_encode(['http-basic' => [$origin => ['username' => 'user', 'password' => 'secret']]]);
+        self::assertIsString($auth);
+
+        $this->runComposer('patches:clone drupal/core ' . $url . ' --description="Private patch"', ['COMPOSER_AUTH' => $auth]);
+
+        self::assertFileExists(
+            $this->workingDirectory . DIRECTORY_SEPARATOR . 'resources/patch/drupal/core/secret.patch'
+        );
+    }
+
+    public function testComposerInstallDoesNotReportAStaleLockAfterCloning(): void
+    {
+        $this->startPatchServer();
+
+        $output = $this->runComposer(
+            'patches:clone drupal/core ' . $this->patchUrl('example.patch') . ' --description="Example patch"'
+        );
+        self::assertStringContainsString('composer.lock hash updated.', $output);
+
+        $output = $this->runComposer('install');
+        self::assertStringNotContainsString('not up to date', $output);
+    }
 }

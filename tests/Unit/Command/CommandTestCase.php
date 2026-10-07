@@ -5,12 +5,15 @@ declare(strict_types=1);
 namespace PatchManager\Tests\Unit\Command;
 
 use Composer\Console\Application;
+use Composer\Package\Locker;
 use PatchManager\Command\ClonePatchCommand;
 use PatchManager\Command\ListPatchesCommand;
 use PatchManager\Command\MigratePatchesCommand;
 use PatchManager\Composer\ComposerJsonUpdater;
+use PatchManager\Composer\LockHashUpdater;
 use PatchManager\Patch\PatchDownloader;
 use PatchManager\Patch\PatchWriter;
+use PatchManager\Tests\Support\ComposerServices;
 use PatchManager\Tests\Support\PatchServer;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
@@ -97,18 +100,20 @@ abstract class CommandTestCase extends TestCase
     protected function cloneCommand(): CommandTester
     {
         return $this->tester(new ClonePatchCommand(
-            new PatchDownloader(),
+            new PatchDownloader(ComposerServices::httpDownloader()),
             new PatchWriter($this->projectRoot),
-            new ComposerJsonUpdater($this->composerJsonPath())
+            new ComposerJsonUpdater($this->composerJsonPath()),
+            $this->lockHashUpdater()
         ));
     }
 
     protected function migrateCommand(): CommandTester
     {
         return $this->tester(new MigratePatchesCommand(
-            new PatchDownloader(),
+            new PatchDownloader(ComposerServices::httpDownloader()),
             new PatchWriter($this->projectRoot),
-            new ComposerJsonUpdater($this->composerJsonPath())
+            new ComposerJsonUpdater($this->composerJsonPath()),
+            $this->lockHashUpdater()
         ));
     }
 
@@ -140,7 +145,38 @@ abstract class CommandTestCase extends TestCase
         return new CommandTester($command);
     }
 
-    private function composerJsonPath(): string
+    /**
+     * Writes a minimal composer.lock whose content-hash matches composer.json,
+     * or the given hash.
+     */
+    protected function writeLock(?string $hash = null): void
+    {
+        $hash ??= Locker::getContentHash((string) file_get_contents($this->composerJsonPath()));
+        file_put_contents(
+            $this->lockPath(),
+            "{\n    \"content-hash\": \"{$hash}\",\n    \"packages\": [],\n    \"platform\": {}\n}\n"
+        );
+    }
+
+    protected function lockIsFresh(): bool
+    {
+        $lock = json_decode((string) file_get_contents($this->lockPath()), true);
+        self::assertIsArray($lock);
+
+        return $lock['content-hash'] === Locker::getContentHash((string) file_get_contents($this->composerJsonPath()));
+    }
+
+    protected function lockPath(): string
+    {
+        return $this->projectRoot . DIRECTORY_SEPARATOR . 'composer.lock';
+    }
+
+    private function lockHashUpdater(): LockHashUpdater
+    {
+        return new LockHashUpdater($this->composerJsonPath(), $this->lockPath());
+    }
+
+    protected function composerJsonPath(): string
     {
         return $this->projectRoot . DIRECTORY_SEPARATOR . 'composer.json';
     }

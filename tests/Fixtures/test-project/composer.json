@@ -16,6 +16,7 @@
     "allow-plugins": {
       "idimopoulos/composer-patches-clone": true,
       "cweagans/composer-patches": true
-    }
+    },
+    "secure-http": false
   }
 }
