@@ -7,6 +7,7 @@ namespace PatchManager\Command;
 use Composer\Command\BaseCommand;
 use InvalidArgumentException;
 use PatchManager\Composer\ComposerJsonUpdater;
+use PatchManager\Composer\LockHashUpdater;
 use PatchManager\Patch\PatchDownloader;
 use PatchManager\Patch\PatchWriter;
 use PatchManager\Patch\RemoteUrl;
@@ -19,7 +20,8 @@ final class MigratePatchesCommand extends BaseCommand
     public function __construct(
         private readonly PatchDownloader $patchDownloader,
         private readonly PatchWriter $patchWriter,
-        private readonly ComposerJsonUpdater $composerJsonUpdater
+        private readonly ComposerJsonUpdater $composerJsonUpdater,
+        private readonly LockHashUpdater $lockHashUpdater
     ) {
         parent::__construct();
     }
@@ -35,6 +37,7 @@ final class MigratePatchesCommand extends BaseCommand
     {
         $migratedCount = 0;
         $failedCount = 0;
+        $lockWasFresh = $this->lockHashUpdater->wasFresh();
 
         foreach ($this->composerJsonUpdater->getPatches() as $package => $patches) {
             if (!is_array($patches)) {
@@ -68,6 +71,10 @@ final class MigratePatchesCommand extends BaseCommand
             }
         }
 
+        if ($migratedCount > 0) {
+            $this->writeLockMessage($output, $this->lockHashUpdater->sync($lockWasFresh));
+        }
+
         if ($migratedCount === 0 && $failedCount === 0) {
             $output->writeln('No remote patches found.');
 
@@ -83,5 +90,12 @@ final class MigratePatchesCommand extends BaseCommand
         $output->writeln(sprintf('Migrated %d remote patch(es).', $migratedCount));
 
         return self::SUCCESS;
+    }
+
+    private function writeLockMessage(OutputInterface $output, ?string $message): void
+    {
+        if ($message !== null) {
+            $output->writeln($message);
+        }
     }
 }

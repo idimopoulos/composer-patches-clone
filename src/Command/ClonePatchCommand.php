@@ -6,6 +6,7 @@ namespace PatchManager\Command;
 
 use Composer\Command\BaseCommand;
 use PatchManager\Composer\ComposerJsonUpdater;
+use PatchManager\Composer\LockHashUpdater;
 use PatchManager\Patch\PatchDownloader;
 use PatchManager\Patch\PatchWriter;
 use PatchManager\Patch\RemoteUrl;
@@ -19,7 +20,8 @@ final class ClonePatchCommand extends BaseCommand
     public function __construct(
         private readonly PatchDownloader $patchDownloader,
         private readonly PatchWriter $patchWriter,
-        private readonly ComposerJsonUpdater $composerJsonUpdater
+        private readonly ComposerJsonUpdater $composerJsonUpdater,
+        private readonly LockHashUpdater $lockHashUpdater
     ) {
         parent::__construct();
     }
@@ -63,9 +65,18 @@ final class ClonePatchCommand extends BaseCommand
 
         $output->writeln(sprintf('Patch saved to %s', $patchPath));
 
+        $lockWasFresh = $this->lockHashUpdater->wasFresh();
         $this->composerJsonUpdater->replacePatch($package, $description, $patchPath, $url);
         $output->writeln('composer.json updated');
+        $this->writeLockMessage($output, $this->lockHashUpdater->sync($lockWasFresh));
 
         return self::SUCCESS;
+    }
+
+    private function writeLockMessage(OutputInterface $output, ?string $message): void
+    {
+        if ($message !== null) {
+            $output->writeln($message);
+        }
     }
 }

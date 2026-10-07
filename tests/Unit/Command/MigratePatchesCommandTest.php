@@ -47,6 +47,36 @@ final class MigratePatchesCommandTest extends CommandTestCase
         self::assertSame(['Good' => $this->patchUrl('example.patch')], $this->sourcesFor('drupal/core'));
     }
 
+    public function testItKeepsAFreshLockFreshAfterMigrating(): void
+    {
+        $this->writeComposerJson([
+            'extra' => ['patches' => ['drupal/core' => ['Fix' => $this->patchUrl('example.patch')]]],
+        ]);
+        $this->writeLock();
+
+        $tester = $this->migrateCommand();
+        $tester->execute([]);
+
+        $tester->assertCommandIsSuccessful();
+        self::assertTrue($this->lockIsFresh());
+        self::assertStringContainsString('composer.lock hash updated.', $tester->getDisplay());
+    }
+
+    public function testItDoesNotTouchTheLockWhenNothingWasMigrated(): void
+    {
+        $this->writeComposerJson([
+            'extra' => ['patches' => ['drupal/core' => ['Missing' => $this->patchUrl('missing.patch')]]],
+        ]);
+        $this->writeLock('0123456789abcdef0123456789abcdef');
+        $lockBefore = file_get_contents($this->lockPath());
+
+        $tester = $this->migrateCommand();
+        $tester->execute([]);
+
+        self::assertSame($lockBefore, file_get_contents($this->lockPath()));
+        self::assertStringNotContainsString('composer.lock', $tester->getDisplay());
+    }
+
     public function testItLeavesLocalAndNonHttpEntriesUntouched(): void
     {
         $this->writeComposerJson([

@@ -94,6 +94,44 @@ final class ClonePatchCommandTest extends CommandTestCase
         self::assertSame('resources/patch/drupal/core/fix.patch', $this->patchesFor('drupal/core')['Fix']);
     }
 
+    public function testItKeepsAFreshLockFresh(): void
+    {
+        $this->writeComposerJson(['require' => ['drupal/core' => '^11']]);
+        $this->writeLock();
+
+        $tester = $this->cloneCommand();
+        $tester->execute(['package' => 'drupal/core', 'url' => $this->patchUrl('example.patch')]);
+
+        $tester->assertCommandIsSuccessful();
+        self::assertTrue($this->lockIsFresh());
+        self::assertStringContainsString('composer.lock hash updated.', $tester->getDisplay());
+    }
+
+    public function testItLeavesAStaleLockStaleAndSaysSo(): void
+    {
+        $this->writeComposerJson(['require' => ['drupal/core' => '^11']]);
+        $this->writeLock('0123456789abcdef0123456789abcdef');
+
+        $tester = $this->cloneCommand();
+        $tester->execute(['package' => 'drupal/core', 'url' => $this->patchUrl('example.patch')]);
+
+        $tester->assertCommandIsSuccessful();
+        self::assertStringContainsString('0123456789abcdef0123456789abcdef', (string) file_get_contents($this->lockPath()));
+        self::assertStringContainsString('composer.lock was already out of date', $tester->getDisplay());
+    }
+
+    public function testItWorksWithoutALock(): void
+    {
+        $this->writeComposerJson([]);
+
+        $tester = $this->cloneCommand();
+        $tester->execute(['package' => 'drupal/core', 'url' => $this->patchUrl('example.patch')]);
+
+        $tester->assertCommandIsSuccessful();
+        self::assertFileDoesNotExist($this->lockPath());
+        self::assertStringNotContainsString('composer.lock', $tester->getDisplay());
+    }
+
     public function testItDoesNotOverwriteAnotherPatchWithTheSameFilename(): void
     {
         $this->writeComposerJson([]);

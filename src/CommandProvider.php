@@ -14,6 +14,7 @@ use PatchManager\Command\ClonePatchCommand;
 use PatchManager\Command\ListPatchesCommand;
 use PatchManager\Command\MigratePatchesCommand;
 use PatchManager\Composer\ComposerJsonUpdater;
+use PatchManager\Composer\LockHashUpdater;
 use PatchManager\Patch\PatchDownloader;
 use PatchManager\Patch\PatchWriter;
 
@@ -39,17 +40,20 @@ final class CommandProvider implements CommandProviderCapability
         // Honour the COMPOSER environment variable the same way Composer does.
         $composerFile = $this->resolvePath($projectRoot, Factory::getComposerFile());
         $patchDownloader = new PatchDownloader($this->httpDownloader());
+        $lockHashUpdater = new LockHashUpdater($composerFile, Factory::getLockFile($composerFile));
 
         return [
             new ClonePatchCommand(
                 $patchDownloader,
                 new PatchWriter($projectRoot),
-                new ComposerJsonUpdater($composerFile)
+                new ComposerJsonUpdater($composerFile),
+                $lockHashUpdater
             ),
             new MigratePatchesCommand(
                 $patchDownloader,
                 new PatchWriter($projectRoot),
-                new ComposerJsonUpdater($composerFile)
+                new ComposerJsonUpdater($composerFile),
+                $lockHashUpdater
             ),
             new ListPatchesCommand(
                 $projectRoot,
