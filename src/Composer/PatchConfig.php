@@ -18,12 +18,16 @@ use RuntimeException;
  *   with extra.patches;
  * - when the version is unknown, either setting or an existing
  *   patches.json is used.
+ * 2.x can also switch either source off with disable-resolvers.
  * Patch paths and the patches-file path are relative to the working
  * directory, as they are for Composer and cweagans/composer-patches.
  */
 final class PatchConfig
 {
     public const DEFAULT_PATCHES_FILE = 'patches.json';
+
+    private const ROOT_COMPOSER_RESOLVER = '\\cweagans\\Composer\\Resolver\\RootComposer';
+    private const PATCHES_FILE_RESOLVER = '\\cweagans\\Composer\\Resolver\\PatchesFile';
 
     private readonly ComposerJsonUpdater $composerJson;
 
@@ -54,6 +58,16 @@ final class PatchConfig
             ?? $this->stringOrNull($extra['composer-patches']['patches-file'] ?? null);
         $default = is_file(self::DEFAULT_PATCHES_FILE) ? self::DEFAULT_PATCHES_FILE : null;
 
+        if (!$this->resolverEnabled(self::PATCHES_FILE_RESOLVER)) {
+            return null;
+        }
+
+        // When composer.json is switched off, the patches file is the only
+        // place for patches, so its default name is used even before it exists.
+        if (!$this->resolverEnabled(self::ROOT_COMPOSER_RESOLVER)) {
+            $default = self::DEFAULT_PATCHES_FILE;
+        }
+
         return match ($this->composerPatchesMajor) {
             // 1.x returns extra.patches before it looks at a patches file.
             1 => array_key_exists('patches', $extra) ? null : $legacy,
@@ -69,7 +83,7 @@ final class PatchConfig
      */
     public function stores(): array
     {
-        $stores = [$this->composerJson];
+        $stores = $this->resolverEnabled(self::ROOT_COMPOSER_RESOLVER) ? [$this->composerJson] : [];
         $patchesFile = $this->patchesFilePath();
 
         if ($patchesFile !== null && is_file($patchesFile)) {
@@ -93,8 +107,19 @@ final class PatchConfig
         }
 
         $patchesFile = $this->patchesFilePath();
+        $composerJsonEnabled = $this->resolverEnabled(self::ROOT_COMPOSER_RESOLVER);
 
-        if ($patchesFile === null || array_key_exists('patches', $this->composerJson->getExtra())) {
+        if ($patchesFile === null) {
+            if (!$composerJsonEnabled) {
+                throw new RuntimeException(
+                    'cweagans/composer-patches is configured (disable-resolvers) to read patches neither from composer.json nor from a patches file.'
+                );
+            }
+
+            return $this->composerJson;
+        }
+
+        if ($composerJsonEnabled && array_key_exists('patches', $this->composerJson->getExtra())) {
             return $this->composerJson;
         }
 
@@ -135,6 +160,28 @@ final class PatchConfig
         $base = pathinfo($composerFile, PATHINFO_FILENAME);
 
         return $directory . DIRECTORY_SEPARATOR . ($base === 'composer' ? 'patches.lock.json' : $base . '-patches.lock.json');
+    }
+
+    /**
+     * Whether cweagans/composer-patches 2.x reads patches from this resolver.
+     *
+     * 1.x has no resolvers, so everything is enabled there.
+     */
+    private function resolverEnabled(string $resolver): bool
+    {
+        if ($this->composerPatchesMajor === 1) {
+            return true;
+        }
+
+        $fromEnvironment = getenv('COMPOSER_PATCHES_DISABLE_RESOLVERS');
+
+        if (is_string($fromEnvironment) && trim($fromEnvironment) !== '') {
+            $disabled = array_map('trim', explode(',', trim($fromEnvironment)));
+        } else {
+            $disabled = $this->composerJson->getExtra()['composer-patches']['disable-resolvers'] ?? [];
+        }
+
+        return !is_array($disabled) || !in_array($resolver, $disabled, true);
     }
 
     private function stringOrNull(mixed $value): ?string

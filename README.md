@@ -21,6 +21,7 @@ Patches kept in a separate file are supported too. The plugin follows the rules 
 
 - **1.x** reads `extra.patches-file`, and only when `composer.json` has no `extra.patches`.
 - **2.x** reads the file named by `COMPOSER_PATCHES_PATCHES_FILE`, else `extra.composer-patches.patches-file`, else `patches.json` in the project root, and merges it with `extra.patches`.
+- **2.x `disable-resolvers`** (or `COMPOSER_PATCHES_DISABLE_RESOLVERS`) is respected: a disabled `RootComposer` or `PatchesFile` resolver means that source is neither read nor written.
 
 - `patches:migrate` and `patches:list` cover both `composer.json` and the patches file.
 - `patches:clone` updates a patch where it is already defined. New patches go to the patches file when `composer.json` has no `extra.patches` of its own, and to `composer.json` otherwise.

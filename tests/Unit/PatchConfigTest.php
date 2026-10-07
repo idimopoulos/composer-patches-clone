@@ -125,6 +125,59 @@ final class PatchConfigTest extends TestCase
         self::assertSame('composer.json', basename($config->storeFor('drupal/core', 'New')->getPath()));
     }
 
+    public function testComposerPatches2SkipsADisabledPatchesFileResolver(): void
+    {
+        $this->writeFile('patches.json', ['patches' => ['drupal/core' => ['In file' => 'a.patch']]]);
+        $config = $this->config(['extra' => ['composer-patches' => [
+            'disable-resolvers' => ['\\cweagans\\Composer\\Resolver\\PatchesFile'],
+        ]]], 2);
+
+        self::assertNull($config->patchesFilePath());
+        self::assertSame(['composer.json'], $this->storeNames($config));
+        self::assertSame('composer.json', basename($config->storeFor('drupal/core', 'In file')->getPath()));
+    }
+
+    public function testComposerPatches2SkipsADisabledRootComposerResolver(): void
+    {
+        $config = $this->config(['extra' => [
+            'patches' => ['drupal/token' => ['In json' => 'b.patch']],
+            'composer-patches' => ['disable-resolvers' => ['\\cweagans\\Composer\\Resolver\\RootComposer']],
+        ]], 2);
+
+        self::assertSame([], $this->storeNames($config));
+
+        $store = $config->storeFor('drupal/token', 'In json');
+
+        self::assertSame('patches.json', basename($store->getPath()));
+        self::assertFileExists('patches.json');
+        self::assertSame(['patches.json'], $this->storeNames($config));
+    }
+
+    public function testComposerPatches2ReadsDisabledResolversFromTheEnvironment(): void
+    {
+        $this->writeFile('patches.json', ['patches' => []]);
+        putenv('COMPOSER_PATCHES_DISABLE_RESOLVERS=\\cweagans\\Composer\\Resolver\\PatchesFile');
+
+        try {
+            self::assertNull($this->config([], 2)->patchesFilePath());
+        } finally {
+            putenv('COMPOSER_PATCHES_DISABLE_RESOLVERS');
+        }
+    }
+
+    public function testItRefusesToStorePatchesWhenEveryResolverIsDisabled(): void
+    {
+        $config = $this->config(['extra' => ['composer-patches' => ['disable-resolvers' => [
+            '\\cweagans\\Composer\\Resolver\\RootComposer',
+            '\\cweagans\\Composer\\Resolver\\PatchesFile',
+        ]]]], 2);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('disable-resolvers');
+
+        $config->storeFor('drupal/core', 'New');
+    }
+
     public function testNewPatchesGoToThePatchesFileWhenComposerJsonHasNone(): void
     {
         $this->writeFile('composer.patches.json', ['patches' => []]);
