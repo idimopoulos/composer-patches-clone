@@ -24,7 +24,7 @@ Patches kept in a separate file are supported too. The plugin follows the rules 
 - **2.x `disable-resolvers`** (or `COMPOSER_PATCHES_DISABLE_RESOLVERS`) is respected: a disabled `RootComposer` or `PatchesFile` resolver means that source is neither read nor written.
 
 - `patches:migrate` and `patches:list` cover both `composer.json` and the patches file.
-- `patches:clone` updates a patch where it is already defined. New patches go to the patches file when `composer.json` has no `extra.patches` of its own, and to `composer.json` otherwise.
+- `patches:clone` updates a patch where it is already defined. New patches go to the patches file when one is in use (configured, or an existing `patches.json` on 2.x) and `composer.json` has no `extra.patches` of its own; otherwise they go to `composer.json`. No `patches.json` is created unless it is configured or `composer.json` is switched off with `disable-resolvers`.
 - Source URLs for patches in the patches file are stored in that file, under a top-level `patches-sources` key. cweagans/composer-patches only reads `patches`, so the extra key is ignored there.
 - The expanded format of cweagans/composer-patches 2.x (a list of `{"description": …, "url": …}` objects) isn't edited: `patches:clone` refuses to touch such a package and leaves the file unchanged, and `patches:migrate` skips it.
 
