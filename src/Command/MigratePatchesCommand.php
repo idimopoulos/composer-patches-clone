@@ -53,6 +53,10 @@ final class MigratePatchesCommand extends BaseCommand
             $this->writeLockMessage($output, $this->lockHashUpdater->sync($lockWasFresh));
         }
 
+        if ($migratedCount > 0) {
+            $this->writeLockMessage($output, $this->patchConfig->relockHint());
+        }
+
         if ($migratedCount === 0 && $failedCount === 0) {
             $output->writeln('No remote patches found.');
 

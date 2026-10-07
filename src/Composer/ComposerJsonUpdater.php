@@ -126,10 +126,32 @@ final class ComposerJsonUpdater
     }
 
     /**
+     * Fails when a package's patches cannot be edited safely.
+     *
+     * cweagans/composer-patches 2.x also accepts an "expanded" format, a list
+     * of {"description", "url", ...} objects. Adding a "description": "path"
+     * entry to such a list would break patch resolution, so it is refused.
+     */
+    public function assertCanStore(string $package): void
+    {
+        $packagePatches = $this->getPatches()[$package] ?? null;
+
+        if (is_array($packagePatches) && $packagePatches !== [] && array_is_list($packagePatches)) {
+            throw new RuntimeException(sprintf(
+                '%s uses the expanded patch format in %s, which this plugin cannot edit yet. Add the patch there by hand.',
+                $package,
+                basename($this->composerJsonPath)
+            ));
+        }
+    }
+
+    /**
      * @param array<string, mixed> $patches
      */
     private function setPatch(array $patches, string $package, string $description, string $path, ?string $sourceUrl = null): void
     {
+        $this->assertCanStore($package);
+
         if (!isset($patches[$package]) || !is_array($patches[$package])) {
             $patches[$package] = [];
         }

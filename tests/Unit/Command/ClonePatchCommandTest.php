@@ -180,6 +180,52 @@ final class ClonePatchCommandTest extends CommandTestCase
         self::assertSame(['drupal/token' => ['Other' => 'patches/other.patch']], $this->readComposerJson()['extra']['patches']);
     }
 
+    public function testItRefusesToEditTheExpandedFormatAndChangesNothing(): void
+    {
+        $this->writeComposerJson(['extra' => ['patches-file' => 'composer.patches.json']]);
+        $patchesFile = (string) json_encode([
+            'patches' => ['drupal/core' => [['description' => 'Existing', 'url' => 'https://example.com/a.patch']]],
+        ]);
+        file_put_contents('composer.patches.json', $patchesFile);
+
+        try {
+            $this->cloneCommand()->execute([
+                'package' => 'drupal/core',
+                'url' => $this->patchUrl('example.patch'),
+                '--description' => 'New',
+            ]);
+            self::fail('Expected the expanded format to be rejected.');
+        } catch (\RuntimeException $exception) {
+            self::assertStringContainsString('expanded patch format', $exception->getMessage());
+        }
+
+        self::assertSame($patchesFile, file_get_contents('composer.patches.json'));
+        self::assertFileDoesNotExist($this->projectFile('resources/patch/drupal/core/example.patch'));
+    }
+
+    public function testItTellsComposerPatches2UsersToRelock(): void
+    {
+        $this->writeComposerJson([]);
+        file_put_contents('patches.lock.json', "{}\n");
+
+        $tester = $this->cloneCommand();
+        $tester->execute(['package' => 'drupal/core', 'url' => $this->patchUrl('example.patch')]);
+
+        $tester->assertCommandIsSuccessful();
+        self::assertStringContainsString('composer patches-relock', $tester->getDisplay());
+        self::assertStringContainsString('composer patches-repatch', $tester->getDisplay());
+    }
+
+    public function testItDoesNotMentionRelockingWithoutAPatchesLock(): void
+    {
+        $this->writeComposerJson([]);
+
+        $tester = $this->cloneCommand();
+        $tester->execute(['package' => 'drupal/core', 'url' => $this->patchUrl('example.patch')]);
+
+        self::assertStringNotContainsString('patches-relock', $tester->getDisplay());
+    }
+
     public function testItDoesNotOverwriteAnotherPatchWithTheSameFilename(): void
     {
         $this->writeComposerJson([]);

@@ -120,6 +120,31 @@ final class MigratePatchesCommandTest extends CommandTestCase
         self::assertStringNotContainsString('composer.lock', $tester->getDisplay());
     }
 
+    public function testItTellsComposerPatches2UsersToRelockAfterMigrating(): void
+    {
+        $this->writeComposerJson([
+            'extra' => ['patches' => ['drupal/core' => ['Fix' => $this->patchUrl('example.patch')]]],
+        ]);
+        file_put_contents('patches.lock.json', "{}\n");
+
+        $tester = $this->migrateCommand();
+        $tester->execute([]);
+
+        $tester->assertCommandIsSuccessful();
+        self::assertStringContainsString('composer patches-relock', $tester->getDisplay());
+    }
+
+    public function testItDoesNotAskToRelockWhenNothingWasMigrated(): void
+    {
+        $this->writeComposerJson(['name' => 'example/project']);
+        file_put_contents('patches.lock.json', "{}\n");
+
+        $tester = $this->migrateCommand();
+        $tester->execute([]);
+
+        self::assertStringNotContainsString('patches-relock', $tester->getDisplay());
+    }
+
     public function testItLeavesLocalAndNonHttpEntriesUntouched(): void
     {
         $this->writeComposerJson([

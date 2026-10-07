@@ -22,6 +22,11 @@ Patches kept in a separate file are supported too: `extra.patches-file` (cweagan
 - `patches:migrate` and `patches:list` cover both `composer.json` and the patches file.
 - `patches:clone` updates a patch where it is already defined. New patches go to the patches file when `composer.json` has no `extra.patches` of its own, and to `composer.json` otherwise.
 - Source URLs for patches in the patches file are stored in that file, under a top-level `patches-sources` key. cweagans/composer-patches only reads `patches`, so the extra key is ignored there.
+- The expanded format of cweagans/composer-patches 2.x (a list of `{"description": …, "url": …}` objects) isn't edited: `patches:clone` refuses to touch such a package and leaves the file unchanged, and `patches:migrate` skips it.
+
+## cweagans/composer-patches 2.x
+
+Version 2.x applies patches from its own `patches.lock.json`, not directly from the definitions. When that file exists, `patches:clone` and `patches:migrate` remind you to run `composer patches-relock` and then `composer patches-repatch` so the change is applied.
 
 ## Source URLs
 

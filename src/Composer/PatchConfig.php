@@ -91,6 +91,38 @@ final class PatchConfig
         return ComposerJsonUpdater::forPatchesFile($patchesFile);
     }
 
+    /**
+     * A reminder for cweagans/composer-patches 2.x, or null when not needed.
+     *
+     * 2.x applies patches from its patches lock, not from the definitions, so
+     * after a change the lock must be rebuilt and the patches re-applied.
+     */
+    public function relockHint(): ?string
+    {
+        $lockFile = $this->patchesLockPath();
+
+        if (!is_file($lockFile)) {
+            return null;
+        }
+
+        return sprintf(
+            '%s found (cweagans/composer-patches 2.x): run "composer patches-relock" and then "composer patches-repatch" to apply the change.',
+            basename($lockFile)
+        );
+    }
+
+    /**
+     * Mirrors cweagans\Composer\Plugin\Patches::getPatchesLockFilePath().
+     */
+    private function patchesLockPath(): string
+    {
+        $composerFile = $this->composerJson->getPath();
+        $directory = dirname(realpath($composerFile) ?: $composerFile);
+        $base = pathinfo($composerFile, PATHINFO_FILENAME);
+
+        return $directory . DIRECTORY_SEPARATOR . ($base === 'composer' ? 'patches.lock.json' : $base . '-patches.lock.json');
+    }
+
     private function configuredPatchesFile(): ?string
     {
         $extra = $this->composerJson->getExtra();

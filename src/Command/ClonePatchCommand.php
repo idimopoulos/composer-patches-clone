@@ -50,6 +50,7 @@ final class ClonePatchCommand extends BaseCommand
         $output->writeln('Patch downloaded');
 
         $store = $this->patchConfig->storeFor($package, $description);
+        $store->assertCanStore($package);
         $existingPath = $store->getPatchPath($package, $description);
         if (is_string($existingPath) && !RemoteUrl::isRemote($existingPath)) {
             $patchPath = $this->patchWriter->writeToRelativePath($existingPath, $patchContents);
@@ -74,6 +75,8 @@ final class ClonePatchCommand extends BaseCommand
         if ($store === $this->patchConfig->composerJson()) {
             $this->writeLockMessage($output, $this->lockHashUpdater->sync($lockWasFresh));
         }
+
+        $this->writeLockMessage($output, $this->patchConfig->relockHint());
 
         return self::SUCCESS;
     }
