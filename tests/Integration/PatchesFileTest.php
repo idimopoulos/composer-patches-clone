@@ -14,7 +14,8 @@ final class PatchesFileTest extends ComposerTestCase
 
         $data = json_decode((string) file_get_contents($composerJsonPath), true);
         self::assertIsArray($data);
-        $data['extra']['patches-file'] = 'composer.patches.json';
+        // The test project installs cweagans/composer-patches 2.x.
+        $data['extra']['composer-patches']['patches-file'] = 'composer.patches.json';
         file_put_contents($composerJsonPath, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
         file_put_contents($patchesFilePath, (string) json_encode([
             'patches' => ['drupal/core' => ['Remote' => $this->patchUrl('one/fix.patch')]],
@@ -36,5 +37,29 @@ final class PatchesFileTest extends ComposerTestCase
         self::assertStringContainsString($this->patchUrl('one/fix.patch'), $output);
         self::assertStringContainsString($this->patchUrl('example.patch'), $output);
         self::assertArrayNotHasKey('patches', $data['extra']);
+    }
+
+    public function testTheLegacySettingIsIgnoredWhenComposerPatches2IsInstalled(): void
+    {
+        $this->startPatchServer();
+        $composerJsonPath = $this->workingDirectory . DIRECTORY_SEPARATOR . 'composer.json';
+        $patchesFilePath = $this->workingDirectory . DIRECTORY_SEPARATOR . 'composer.patches.json';
+
+        $installed = json_decode((string) file_get_contents($this->workingDirectory . '/vendor/composer/installed.json'), true);
+        self::assertIsArray($installed);
+        $versions = array_column($installed['packages'], 'version', 'name');
+        self::assertStringStartsWith('2.', (string) $versions['cweagans/composer-patches']);
+
+        $data = json_decode((string) file_get_contents($composerJsonPath), true);
+        self::assertIsArray($data);
+        $data['extra']['patches-file'] = 'composer.patches.json';
+        file_put_contents($composerJsonPath, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
+        $patchesFile = (string) json_encode(['patches' => ['drupal/core' => ['Remote' => $this->patchUrl('one/fix.patch')]]]);
+        file_put_contents($patchesFilePath, $patchesFile);
+
+        $output = $this->runComposer('patches:migrate');
+
+        self::assertStringContainsString('No remote patches found.', $output);
+        self::assertSame($patchesFile, file_get_contents($patchesFilePath));
     }
 }

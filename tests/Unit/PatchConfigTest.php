@@ -38,14 +38,16 @@ final class PatchConfigTest extends TestCase
     }
 
     /**
-     * @return array<string, array{0: array<string, mixed>, 1: string}>
+     * @return array<string, array{0: int|null, 1: array<string, mixed>, 2: string}>
      */
     public static function patchesFileSettings(): array
     {
         return [
-            'cweagans 1.x' => [['patches-file' => 'composer.patches.json'], 'composer.patches.json'],
-            'cweagans 2.x' => [['composer-patches' => ['patches-file' => 'patches/custom.json']], 'patches/custom.json'],
-            'cweagans 2.x default' => [[], 'patches.json'],
+            'cweagans 1.x' => [1, ['patches-file' => 'composer.patches.json'], 'composer.patches.json'],
+            'cweagans 2.x' => [2, ['composer-patches' => ['patches-file' => 'patches/custom.json']], 'patches/custom.json'],
+            'cweagans 2.x default' => [2, [], 'patches.json'],
+            'unknown version, 1.x setting' => [null, ['patches-file' => 'composer.patches.json'], 'composer.patches.json'],
+            'unknown version, default' => [null, [], 'patches.json'],
         ];
     }
 
@@ -54,10 +56,10 @@ final class PatchConfigTest extends TestCase
      *
      * @param array<string, mixed> $extra
      */
-    public function testItFindsThePatchesFile(array $extra, string $path): void
+    public function testItFindsThePatchesFile(?int $major, array $extra, string $path): void
     {
         $this->writeFile($path, ['patches' => ['drupal/core' => ['Fix' => 'https://example.com/fix.patch']]]);
-        $config = $this->config($extra === [] ? [] : ['extra' => $extra]);
+        $config = $this->config($extra === [] ? [] : ['extra' => $extra], $major);
 
         self::assertSame($path, $config->patchesFilePath());
         self::assertSame(['composer.json', basename($path)], $this->storeNames($config));
@@ -65,6 +67,62 @@ final class PatchConfigTest extends TestCase
             ['drupal/core' => ['Fix' => 'https://example.com/fix.patch']],
             $config->stores()[1]->getPatches()
         );
+    }
+
+    /**
+     * @return array<string, array{0: int, 1: array<string, mixed>, 2: string}>
+     */
+    public static function patchesFilesTheInstalledVersionIgnores(): array
+    {
+        return [
+            '1.x has no patches.json default' => [1, [], 'patches.json'],
+            '1.x ignores the 2.x setting' => [1, ['composer-patches' => ['patches-file' => 'p.json']], 'p.json'],
+            '1.x ignores the file when extra.patches exists' => [
+                1,
+                ['patches-file' => 'composer.patches.json', 'patches' => ['drupal/token' => ['A' => 'a.patch']]],
+                'composer.patches.json',
+            ],
+            '2.x ignores the 1.x setting' => [2, ['patches-file' => 'composer.patches.json'], 'composer.patches.json'],
+        ];
+    }
+
+    /**
+     * @dataProvider patchesFilesTheInstalledVersionIgnores
+     *
+     * @param array<string, mixed> $extra
+     */
+    public function testItIgnoresPatchesFilesTheInstalledVersionDoesNotRead(int $major, array $extra, string $path): void
+    {
+        $this->writeFile($path, ['patches' => ['drupal/core' => ['Fix' => 'https://example.com/fix.patch']]]);
+        $config = $this->config($extra === [] ? [] : ['extra' => $extra], $major);
+
+        self::assertNull($config->patchesFilePath());
+        self::assertSame(['composer.json'], $this->storeNames($config));
+        self::assertSame('composer.json', basename($config->storeFor('drupal/core', 'Fix')->getPath()));
+    }
+
+    public function testComposerPatches2ReadsThePatchesFileFromTheEnvironment(): void
+    {
+        $this->writeFile('from-env.json', ['patches' => []]);
+        putenv('COMPOSER_PATCHES_PATCHES_FILE=from-env.json');
+
+        try {
+            $config = $this->config(['extra' => ['composer-patches' => ['patches-file' => 'patches/custom.json']]], 2);
+
+            self::assertSame('from-env.json', $config->patchesFilePath());
+        } finally {
+            putenv('COMPOSER_PATCHES_PATCHES_FILE');
+        }
+    }
+
+    public function testComposerPatches2MergesThePatchesFileWithExtraPatches(): void
+    {
+        $this->writeFile('patches.json', ['patches' => ['drupal/core' => ['In file' => 'a.patch']]]);
+        $config = $this->config(['extra' => ['patches' => ['drupal/token' => ['In json' => 'b.patch']]]], 2);
+
+        self::assertSame(['composer.json', 'patches.json'], $this->storeNames($config));
+        self::assertSame('patches.json', basename($config->storeFor('drupal/core', 'In file')->getPath()));
+        self::assertSame('composer.json', basename($config->storeFor('drupal/core', 'New')->getPath()));
     }
 
     public function testNewPatchesGoToThePatchesFileWhenComposerJsonHasNone(): void
@@ -114,12 +172,14 @@ final class PatchConfigTest extends TestCase
 
     /**
      * @param array<string, mixed> $composerJson
+     * @param int|null $composerPatchesMajor
+     *   The installed cweagans/composer-patches major version, if known.
      */
-    private function config(array $composerJson): PatchConfig
+    private function config(array $composerJson, ?int $composerPatchesMajor = null): PatchConfig
     {
         $this->writeFile('composer.json', $composerJson === [] ? new \stdClass() : $composerJson);
 
-        return new PatchConfig('composer.json');
+        return new PatchConfig('composer.json', $composerPatchesMajor);
     }
 
     /**

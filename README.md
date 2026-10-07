@@ -17,7 +17,10 @@ It helps turn remote patch definitions into local patch files that live in your 
 
 ## Patches files
 
-Patches kept in a separate file are supported too: `extra.patches-file` (cweagans/composer-patches 1.x), `extra.composer-patches.patches-file` (2.x), or a `patches.json` in the project root (the 2.x default).
+Patches kept in a separate file are supported too. The plugin follows the rules of the installed cweagans/composer-patches version:
+
+- **1.x** reads `extra.patches-file`, and only when `composer.json` has no `extra.patches`.
+- **2.x** reads the file named by `COMPOSER_PATCHES_PATCHES_FILE`, else `extra.composer-patches.patches-file`, else `patches.json` in the project root, and merges it with `extra.patches`.
 
 - `patches:migrate` and `patches:list` cover both `composer.json` and the patches file.
 - `patches:clone` updates a patch where it is already defined. New patches go to the patches file when `composer.json` has no `extra.patches` of its own, and to `composer.json` otherwise.

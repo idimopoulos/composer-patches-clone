@@ -41,7 +41,7 @@ final class CommandProvider implements CommandProviderCapability
         // the path is relative to the working directory, as Composer uses it.
         $composerFile = Factory::getComposerFile();
         $patchDownloader = new PatchDownloader($this->httpDownloader());
-        $patchConfig = new PatchConfig($composerFile);
+        $patchConfig = new PatchConfig($composerFile, $this->composerPatchesMajor());
         $lockHashUpdater = new LockHashUpdater(
             $composerFile,
             $this->lockEnabled() ? Factory::getLockFile($composerFile) : null
@@ -65,6 +65,31 @@ final class CommandProvider implements CommandProviderCapability
                 $patchConfig
             ),
         ];
+    }
+
+    /**
+     * The installed cweagans/composer-patches major version, if known.
+     *
+     * 1.x and 2.x read patches files differently, so PatchConfig follows the
+     * installed one. Dev branches without a numeric version count as unknown.
+     */
+    private function composerPatchesMajor(): ?int
+    {
+        $composer = $this->args['composer'] ?? null;
+
+        if (!$composer instanceof Composer) {
+            return null;
+        }
+
+        $package = $composer->getRepositoryManager()->getLocalRepository()->findPackage('cweagans/composer-patches', '*');
+
+        if ($package === null) {
+            return null;
+        }
+
+        $major = (int) explode('.', $package->getVersion())[0];
+
+        return $major > 0 ? $major : null;
     }
 
     /**

@@ -10,11 +10,14 @@ use RuntimeException;
  * Knows where a project keeps its patch definitions.
  *
  * Patches can live in composer.json (extra.patches) and in a separate
- * patches file:
- * - cweagans/composer-patches 1.x reads extra.patches-file, and only when
- *   extra.patches is absent;
- * - 2.x reads extra.composer-patches.patches-file, defaulting to
- *   patches.json, and merges it with extra.patches.
+ * patches file, following the rules of the installed
+ * cweagans/composer-patches version:
+ * - 1.x reads extra.patches-file, and only when extra.patches is absent;
+ * - 2.x reads COMPOSER_PATCHES_PATCHES_FILE, else
+ *   extra.composer-patches.patches-file, else patches.json, and merges it
+ *   with extra.patches;
+ * - when the version is unknown, either setting or an existing
+ *   patches.json is used.
  * Patch paths and the patches-file path are relative to the working
  * directory, as they are for Composer and cweagans/composer-patches.
  */
@@ -24,8 +27,14 @@ final class PatchConfig
 
     private readonly ComposerJsonUpdater $composerJson;
 
-    public function __construct(string $composerJsonPath)
-    {
+    /**
+     * @param int|null $composerPatchesMajor
+     *   The installed cweagans/composer-patches major version, if known.
+     */
+    public function __construct(
+        string $composerJsonPath,
+        private readonly ?int $composerPatchesMajor = null
+    ) {
         $this->composerJson = new ComposerJsonUpdater($composerJsonPath);
     }
 
@@ -35,17 +44,22 @@ final class PatchConfig
     }
 
     /**
-     * The configured patches file, or patches.json when it exists.
+     * The patches file the installed cweagans/composer-patches would read.
      */
     public function patchesFilePath(): ?string
     {
-        $configured = $this->configuredPatchesFile();
+        $extra = $this->composerJson->getExtra();
+        $legacy = $this->stringOrNull($extra['patches-file'] ?? null);
+        $current = $this->stringOrNull(getenv('COMPOSER_PATCHES_PATCHES_FILE'))
+            ?? $this->stringOrNull($extra['composer-patches']['patches-file'] ?? null);
+        $default = is_file(self::DEFAULT_PATCHES_FILE) ? self::DEFAULT_PATCHES_FILE : null;
 
-        if ($configured !== null) {
-            return $configured;
-        }
-
-        return is_file(self::DEFAULT_PATCHES_FILE) ? self::DEFAULT_PATCHES_FILE : null;
+        return match ($this->composerPatchesMajor) {
+            // 1.x returns extra.patches before it looks at a patches file.
+            1 => array_key_exists('patches', $extra) ? null : $legacy,
+            2 => $current ?? $default,
+            default => $current ?? $legacy ?? $default,
+        };
     }
 
     /**
@@ -123,12 +137,9 @@ final class PatchConfig
         return $directory . DIRECTORY_SEPARATOR . ($base === 'composer' ? 'patches.lock.json' : $base . '-patches.lock.json');
     }
 
-    private function configuredPatchesFile(): ?string
+    private function stringOrNull(mixed $value): ?string
     {
-        $extra = $this->composerJson->getExtra();
-        $path = $extra['composer-patches']['patches-file'] ?? $extra['patches-file'] ?? null;
-
-        return is_string($path) && $path !== '' ? $path : null;
+        return is_string($value) && $value !== '' ? $value : null;
     }
 
     private function defines(ComposerJsonUpdater $store, string $package, string $description): bool
