@@ -65,7 +65,8 @@ docker compose run --rm php vendor/bin/phpunit
 - Running `patches:clone` again for an existing description refreshes that patch in place, and turns a remote entry into a local one.
 - If a different patch already uses the target filename, the new file gets a numeric suffix (`fix-2.patch`) instead of overwriting it. Identical content reuses the existing file.
 - `patches:migrate` only handles `"description": "https://..."` entries; other formats are reported and skipped. Failed downloads are reported, the remaining patches are still migrated, and the command exits non-zero.
-- `composer.json` is edited in place, so formatting and unrelated content are preserved.
+- `composer.json` is edited in place, so formatting and unrelated content are preserved. If the `COMPOSER` environment variable names another file, that file is edited instead.
+- Patches are downloaded with Composer's own HTTP client, so `auth.json` credentials, proxy settings and `secure-http` apply. Only `http://` and `https://` URLs are accepted, and plain `http://` needs `"secure-http": false`, just like Composer itself.
 
 ## Continuous Integration
 

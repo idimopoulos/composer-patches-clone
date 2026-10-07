@@ -11,6 +11,7 @@ use PatchManager\Command\MigratePatchesCommand;
 use PatchManager\Composer\ComposerJsonUpdater;
 use PatchManager\Patch\PatchDownloader;
 use PatchManager\Patch\PatchWriter;
+use PatchManager\Tests\Support\ComposerServices;
 use PatchManager\Tests\Support\PatchServer;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
@@ -97,7 +98,7 @@ abstract class CommandTestCase extends TestCase
     protected function cloneCommand(): CommandTester
     {
         return $this->tester(new ClonePatchCommand(
-            new PatchDownloader(),
+            new PatchDownloader(ComposerServices::httpDownloader()),
             new PatchWriter($this->projectRoot),
             new ComposerJsonUpdater($this->composerJsonPath())
         ));
@@ -106,7 +107,7 @@ abstract class CommandTestCase extends TestCase
     protected function migrateCommand(): CommandTester
     {
         return $this->tester(new MigratePatchesCommand(
-            new PatchDownloader(),
+            new PatchDownloader(ComposerServices::httpDownloader()),
             new PatchWriter($this->projectRoot),
             new ComposerJsonUpdater($this->composerJsonPath())
         ));

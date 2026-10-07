@@ -33,7 +33,7 @@ final class PatchServer
         $server = new self();
         $server->port = self::findFreePort();
         $server->process = new Process(
-            [PHP_BINARY, '-S', self::HOST . ':' . $server->port, '-t', $documentRoot],
+            [PHP_BINARY, '-S', self::HOST . ':' . $server->port, '-t', $documentRoot, self::routerScript()],
             $documentRoot
         );
         $server->process->start();
@@ -45,6 +45,11 @@ final class PatchServer
     public static function fixturesDirectory(): string
     {
         return dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Fixtures' . DIRECTORY_SEPARATOR . 'patches';
+    }
+
+    public static function routerScript(): string
+    {
+        return dirname(__DIR__) . DIRECTORY_SEPARATOR . 'Fixtures' . DIRECTORY_SEPARATOR . 'patch-server-router.php';
     }
 
     public function url(string $path): string

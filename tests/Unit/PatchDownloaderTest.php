@@ -4,41 +4,107 @@ declare(strict_types=1);
 
 namespace PatchManager\Tests\Unit;
 
+use InvalidArgumentException;
 use PatchManager\Patch\PatchDownloader;
+use PatchManager\Tests\Support\ComposerServices;
+use PatchManager\Tests\Support\PatchServer;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
 final class PatchDownloaderTest extends TestCase
 {
+    private static PatchServer $server;
+
+    public static function setUpBeforeClass(): void
+    {
+        self::$server = PatchServer::start();
+    }
+
+    public static function tearDownAfterClass(): void
+    {
+        self::$server->stop();
+    }
+
     public function testItDownloadsAValidPatch(): void
     {
-        $downloader = new PatchDownloader();
-        $url = 'data://text/plain,' . rawurlencode("--- a/file.txt\n+++ b/file.txt\n@@\n-old line\n+new line\n");
+        $downloader = new PatchDownloader(ComposerServices::httpDownloader());
 
-        $contents = $downloader->download($url);
+        $contents = $downloader->download(self::$server->url('example.patch'));
 
-        self::assertStringContainsString('--- a/file.txt', $contents);
-        self::assertStringContainsString('+++ b/file.txt', $contents);
+        self::assertStringEqualsFile(PatchServer::fixturesDirectory() . '/example.patch', $contents);
     }
 
     public function testItThrowsWhenContentIsNotAPatch(): void
     {
-        $downloader = new PatchDownloader();
-        $url = 'data://text/plain,' . rawurlencode("plain text\nnothing patch-like here\n");
+        $downloader = new PatchDownloader(ComposerServices::httpDownloader());
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Downloaded content is not a valid patch.');
 
-        $downloader->download($url);
+        $downloader->download(self::$server->url('not-a-patch.html'));
     }
 
     public function testItThrowsWhenDownloadFails(): void
     {
-        $downloader = new PatchDownloader();
+        $downloader = new PatchDownloader(ComposerServices::httpDownloader());
+        $url = self::$server->url('missing.patch');
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Unable to download patch from ' . $url);
+
+        $downloader->download($url);
+    }
+
+    public function testItSendsCredentialsFromComposerAuthConfig(): void
+    {
+        $url = self::$server->url('private/secret.patch');
+        // Composer keys credentials by host, plus the port when there is one.
+        $origin = parse_url($url, PHP_URL_HOST) . ':' . parse_url($url, PHP_URL_PORT);
+        $withAuth = new PatchDownloader(ComposerServices::httpDownloader([
+            'http-basic' => [$origin => ['username' => 'user', 'password' => 'secret']],
+        ]));
+
+        self::assertStringContainsString('+new line', $withAuth->download($url));
 
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Unable to download patch');
 
-        $downloader->download('file:///definitely/not/a/real/path.patch');
+        (new PatchDownloader(ComposerServices::httpDownloader()))->download($url);
+    }
+
+    public function testItRespectsSecureHttp(): void
+    {
+        $downloader = new PatchDownloader(ComposerServices::httpDownloader(['secure-http' => true]));
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('secure-http');
+
+        $downloader->download(self::$server->url('example.patch'));
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function nonHttpUrls(): array
+    {
+        return [
+            'local path' => ['/etc/passwd'],
+            'file scheme' => ['file:///etc/passwd'],
+            'data scheme' => ['data://text/plain,--- a'],
+            'phar scheme' => ['phar:///tmp/x.phar/patch'],
+        ];
+    }
+
+    /**
+     * @dataProvider nonHttpUrls
+     */
+    public function testItOnlyAcceptsHttpUrls(string $url): void
+    {
+        $downloader = new PatchDownloader(ComposerServices::httpDownloader());
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('must be an http or https URL');
+
+        $downloader->download($url);
     }
 }
