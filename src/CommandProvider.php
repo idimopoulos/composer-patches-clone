@@ -37,10 +37,14 @@ final class CommandProvider implements CommandProviderCapability
             $projectRoot = '.';
         }
 
-        // Honour the COMPOSER environment variable the same way Composer does.
-        $composerFile = $this->resolvePath($projectRoot, Factory::getComposerFile());
+        // Honour the COMPOSER environment variable the same way Composer does;
+        // the path is relative to the working directory, as Composer uses it.
+        $composerFile = Factory::getComposerFile();
         $patchDownloader = new PatchDownloader($this->httpDownloader());
-        $lockHashUpdater = new LockHashUpdater($composerFile, Factory::getLockFile($composerFile));
+        $lockHashUpdater = new LockHashUpdater(
+            $composerFile,
+            $this->lockEnabled() ? Factory::getLockFile($composerFile) : null
+        );
 
         return [
             new ClonePatchCommand(
@@ -63,6 +67,16 @@ final class CommandProvider implements CommandProviderCapability
     }
 
     /**
+     * Whether the project uses a lock file ("lock": false disables it).
+     */
+    private function lockEnabled(): bool
+    {
+        $composer = $this->args['composer'] ?? null;
+
+        return !$composer instanceof Composer || $composer->getConfig()->get('lock') !== false;
+    }
+
+    /**
      * Reuses Composer's HTTP client so auth.json, proxies and secure-http apply.
      */
     private function httpDownloader(): HttpDownloader
@@ -77,14 +91,5 @@ final class CommandProvider implements CommandProviderCapability
         $io = $io instanceof IOInterface ? $io : new NullIO();
 
         return Factory::createHttpDownloader($io, Factory::createConfig($io));
-    }
-
-    private function resolvePath(string $projectRoot, string $path): string
-    {
-        if (str_starts_with($path, '/') || preg_match('#^[A-Za-z]:[\\\\/]#', $path) === 1) {
-            return $path;
-        }
-
-        return $projectRoot . DIRECTORY_SEPARATOR . $path;
     }
 }

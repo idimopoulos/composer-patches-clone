@@ -17,9 +17,13 @@ use RuntimeException;
  */
 final class LockHashUpdater
 {
+    /**
+     * @param string|null $lockPath
+     *   Null when the project disables the lock file ("lock": false).
+     */
     public function __construct(
         private readonly string $composerJsonPath,
-        private readonly string $lockPath
+        private readonly ?string $lockPath
     ) {
     }
 
@@ -53,7 +57,7 @@ final class LockHashUpdater
             return null;
         }
 
-        $lockName = basename($this->lockPath);
+        $lockName = basename((string) $this->lockPath);
 
         if (!$wasFresh) {
             return sprintf('%s was already out of date; run "composer update --lock" to refresh it.', $lockName);
@@ -66,6 +70,10 @@ final class LockHashUpdater
 
     private function refresh(): void
     {
+        if ($this->lockPath === null) {
+            return;
+        }
+
         $lock = (string) file_get_contents($this->lockPath);
         $composerJson = @file_get_contents($this->composerJsonPath);
 
@@ -99,6 +107,10 @@ final class LockHashUpdater
 
     private function readLockHash(): ?string
     {
+        if ($this->lockPath === null) {
+            return null;
+        }
+
         $contents = @file_get_contents($this->lockPath);
 
         if ($contents === false) {

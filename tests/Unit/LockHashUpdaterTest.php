@@ -77,6 +77,20 @@ final class LockHashUpdaterTest extends TestCase
         self::assertFileDoesNotExist($this->lockPath);
     }
 
+    public function testItDoesNothingWhenTheLockFileIsDisabled(): void
+    {
+        $this->writeLock($this->hashOfComposerJson());
+        $lockBefore = file_get_contents($this->lockPath);
+        $updater = new LockHashUpdater($this->composerJsonPath, null);
+
+        $wasFresh = $updater->wasFresh();
+        file_put_contents($this->composerJsonPath, "{\n    \"extra\": {}\n}\n");
+
+        self::assertNull($wasFresh);
+        self::assertNull($updater->sync($wasFresh));
+        self::assertSame($lockBefore, file_get_contents($this->lockPath));
+    }
+
     /**
      * @return array<string, array{0: string}>
      */
