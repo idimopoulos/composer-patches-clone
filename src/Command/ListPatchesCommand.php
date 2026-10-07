@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace PatchManager\Command;
+namespace Idimopoulos\ComposerPatchesClone\Command;
 
 use Composer\Command\BaseCommand;
+use Idimopoulos\ComposerPatchesClone\Composer\ComposerJsonUpdater;
+use Idimopoulos\ComposerPatchesClone\Patch\RemoteUrl;
 use InvalidArgumentException;
-use PatchManager\Composer\ComposerJsonUpdater;
-use PatchManager\Patch\RemoteUrl;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;

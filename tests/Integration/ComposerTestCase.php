@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PatchManager\Tests\Integration;
+namespace Idimopoulos\ComposerPatchesClone\Tests\Integration;
 
-use PatchManager\Tests\Support\Filesystem;
-use PatchManager\Tests\Support\PatchServer;
+use Idimopoulos\ComposerPatchesClone\Tests\Support\Filesystem;
+use Idimopoulos\ComposerPatchesClone\Tests\Support\PatchServer;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;

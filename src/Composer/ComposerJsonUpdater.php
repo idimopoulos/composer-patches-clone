@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PatchManager\Composer;
+namespace Idimopoulos\ComposerPatchesClone\Composer;
 
 use Composer\Json\JsonFile;
 use Composer\Json\JsonManipulator;

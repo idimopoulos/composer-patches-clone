@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PatchManager;
+namespace Idimopoulos\ComposerPatchesClone;
 
 use Composer\Composer;
 use Composer\Factory;
@@ -10,13 +10,13 @@ use Composer\IO\IOInterface;
 use Composer\IO\NullIO;
 use Composer\Plugin\Capability\CommandProvider as CommandProviderCapability;
 use Composer\Util\HttpDownloader;
-use PatchManager\Command\ClonePatchCommand;
-use PatchManager\Command\ListPatchesCommand;
-use PatchManager\Command\MigratePatchesCommand;
-use PatchManager\Composer\ComposerJsonUpdater;
-use PatchManager\Composer\LockHashUpdater;
-use PatchManager\Patch\PatchDownloader;
-use PatchManager\Patch\PatchWriter;
+use Idimopoulos\ComposerPatchesClone\Command\ClonePatchCommand;
+use Idimopoulos\ComposerPatchesClone\Command\ListPatchesCommand;
+use Idimopoulos\ComposerPatchesClone\Command\MigratePatchesCommand;
+use Idimopoulos\ComposerPatchesClone\Composer\ComposerJsonUpdater;
+use Idimopoulos\ComposerPatchesClone\Composer\LockHashUpdater;
+use Idimopoulos\ComposerPatchesClone\Patch\PatchDownloader;
+use Idimopoulos\ComposerPatchesClone\Patch\PatchWriter;
 
 final class CommandProvider implements CommandProviderCapability
 {

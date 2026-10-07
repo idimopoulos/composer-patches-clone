@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PatchManager\Tests\Unit;
+namespace Idimopoulos\ComposerPatchesClone\Tests\Unit;
 
-use PatchManager\Composer\ComposerJsonUpdater;
-use PatchManager\Tests\Support\Filesystem;
+use Idimopoulos\ComposerPatchesClone\Composer\ComposerJsonUpdater;
+use Idimopoulos\ComposerPatchesClone\Tests\Support\Filesystem;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 

@@ -63,7 +63,7 @@ docker compose run --rm php composer test
 
 ## Notes
 
-- The plugin currently uses the `PatchManager\\` PHP namespace.
+- The PHP namespace is `Idimopoulos\ComposerPatchesClone\`.
 - By default, local patches are written under `resources/patch`.
 - `patches:clone` also supports `--base-path` and `--patch-name`. `--patch-name` must be a plain filename and `--base-path` must not contain `..` segments.
 - Running `patches:clone` again for an existing description refreshes that patch in place, and turns a remote entry into a local one.

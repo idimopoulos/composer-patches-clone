@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PatchManager\Tests\Unit;
+namespace Idimopoulos\ComposerPatchesClone\Tests\Unit;
 
-use PatchManager\Patch\PatchWriter;
-use PatchManager\Tests\Support\Filesystem;
+use Idimopoulos\ComposerPatchesClone\Patch\PatchWriter;
+use Idimopoulos\ComposerPatchesClone\Tests\Support\Filesystem;
 use PHPUnit\Framework\TestCase;
 
 final class PatchWriterTest extends TestCase

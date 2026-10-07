@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PatchManager\Tests\Unit\Command;
+namespace Idimopoulos\ComposerPatchesClone\Tests\Unit\Command;
 
 use Symfony\Component\Console\Command\Command;
 

@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace PatchManager\Command;
+namespace Idimopoulos\ComposerPatchesClone\Command;
 
 use Composer\Command\BaseCommand;
+use Idimopoulos\ComposerPatchesClone\Composer\ComposerJsonUpdater;
+use Idimopoulos\ComposerPatchesClone\Composer\LockHashUpdater;
+use Idimopoulos\ComposerPatchesClone\Patch\PatchDownloader;
+use Idimopoulos\ComposerPatchesClone\Patch\PatchWriter;
+use Idimopoulos\ComposerPatchesClone\Patch\RemoteUrl;
 use InvalidArgumentException;
-use PatchManager\Composer\ComposerJsonUpdater;
-use PatchManager\Composer\LockHashUpdater;
-use PatchManager\Patch\PatchDownloader;
-use PatchManager\Patch\PatchWriter;
-use PatchManager\Patch\RemoteUrl;
 use RuntimeException;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;

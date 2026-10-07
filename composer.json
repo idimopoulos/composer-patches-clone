@@ -28,12 +28,12 @@
   },
   "autoload": {
     "psr-4": {
-      "PatchManager\\": "src/"
+      "Idimopoulos\\ComposerPatchesClone\\": "src/"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "PatchManager\\Tests\\": "tests/"
+      "Idimopoulos\\ComposerPatchesClone\\Tests\\": "tests/"
     }
   },
   "config": {
@@ -50,6 +50,6 @@
     "test:integration": "phpunit --testsuite integration"
   },
   "extra": {
-    "class": "PatchManager\\Plugin"
+    "class": "Idimopoulos\\ComposerPatchesClone\\Plugin"
   }
 }

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PatchManager\Tests\Unit;
+namespace Idimopoulos\ComposerPatchesClone\Tests\Unit;
 
 use Composer\Package\Locker;
-use PatchManager\Composer\LockHashUpdater;
+use Idimopoulos\ComposerPatchesClone\Composer\LockHashUpdater;
 use PHPUnit\Framework\TestCase;
 
 final class LockHashUpdaterTest extends TestCase

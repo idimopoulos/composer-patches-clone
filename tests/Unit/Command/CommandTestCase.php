@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace PatchManager\Tests\Unit\Command;
+namespace Idimopoulos\ComposerPatchesClone\Tests\Unit\Command;
 
 use Composer\Console\Application;
 use Composer\Package\Locker;
-use PatchManager\Command\ClonePatchCommand;
-use PatchManager\Command\ListPatchesCommand;
-use PatchManager\Command\MigratePatchesCommand;
-use PatchManager\Composer\ComposerJsonUpdater;
-use PatchManager\Composer\LockHashUpdater;
-use PatchManager\Patch\PatchDownloader;
-use PatchManager\Patch\PatchWriter;
-use PatchManager\Tests\Support\ComposerServices;
-use PatchManager\Tests\Support\Filesystem;
-use PatchManager\Tests\Support\PatchServer;
+use Idimopoulos\ComposerPatchesClone\Command\ClonePatchCommand;
+use Idimopoulos\ComposerPatchesClone\Command\ListPatchesCommand;
+use Idimopoulos\ComposerPatchesClone\Command\MigratePatchesCommand;
+use Idimopoulos\ComposerPatchesClone\Composer\ComposerJsonUpdater;
+use Idimopoulos\ComposerPatchesClone\Composer\LockHashUpdater;
+use Idimopoulos\ComposerPatchesClone\Patch\PatchDownloader;
+use Idimopoulos\ComposerPatchesClone\Patch\PatchWriter;
+use Idimopoulos\ComposerPatchesClone\Tests\Support\ComposerServices;
+use Idimopoulos\ComposerPatchesClone\Tests\Support\Filesystem;
+use Idimopoulos\ComposerPatchesClone\Tests\Support\PatchServer;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
