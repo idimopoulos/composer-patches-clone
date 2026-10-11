@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PatchManager\Tests\Support;
+namespace Idimopoulos\ComposerPatchesClone\Tests\Support;
 
 use Composer\Config;
 use Composer\Factory;

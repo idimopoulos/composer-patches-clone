@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
-namespace PatchManager\Tests\Integration;
+namespace Idimopoulos\ComposerPatchesClone\Tests\Integration;
 
+use Idimopoulos\ComposerPatchesClone\Tests\Support\Filesystem;
+use Idimopoulos\ComposerPatchesClone\Tests\Support\PatchServer;
 use PHPUnit\Framework\Assert;
-use PatchManager\Tests\Support\PatchServer;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Symfony\Component\Process\Process;
@@ -34,7 +35,7 @@ abstract class ComposerTestCase extends TestCase
             $this->patchServer = null;
         }
 
-        $this->deleteDirectory($this->workingDirectory);
+        Filesystem::removeDirectory($this->workingDirectory);
 
         parent::tearDown();
     }
@@ -87,10 +88,28 @@ abstract class ComposerTestCase extends TestCase
     /**
      * @param array<string, string> $env
      */
+    /**
+     * The Composer that runs the tests.
+     *
+     * Under `composer test` this is the binary that started the script (Composer
+     * puts vendor/bin first on PATH, which would otherwise pick the dev copy of
+     * composer/composer). Otherwise it is the `composer` on PATH.
+     */
+    private function composerBinary(): string
+    {
+        $binary = getenv('COMPOSER_BINARY');
+
+        if (is_string($binary) && $binary !== '') {
+            return escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($binary);
+        }
+
+        return 'composer';
+    }
+
     private function createComposerProcess(string $command, array $env = []): Process
     {
         return Process::fromShellCommandline(
-            'composer ' . $command,
+            $this->composerBinary() . ' ' . $command,
             $this->workingDirectory,
             $env + ['COMPOSER_ALLOW_SUPERUSER' => '1']
         );
@@ -159,35 +178,5 @@ abstract class ComposerTestCase extends TestCase
 
             copy($from, $to);
         }
-    }
-
-    private function deleteDirectory(string $directory): void
-    {
-        if (!is_dir($directory)) {
-            return;
-        }
-
-        $items = scandir($directory);
-
-        if ($items === false) {
-            return;
-        }
-
-        foreach ($items as $item) {
-            if ($item === '.' || $item === '..') {
-                continue;
-            }
-
-            $path = $directory . DIRECTORY_SEPARATOR . $item;
-
-            if (is_dir($path) && !is_link($path)) {
-                $this->deleteDirectory($path);
-                continue;
-            }
-
-            @unlink($path);
-        }
-
-        @rmdir($directory);
     }
 }

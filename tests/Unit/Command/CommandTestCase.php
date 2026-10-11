@@ -2,19 +2,20 @@
 
 declare(strict_types=1);
 
-namespace PatchManager\Tests\Unit\Command;
+namespace Idimopoulos\ComposerPatchesClone\Tests\Unit\Command;
 
 use Composer\Console\Application;
 use Composer\Package\Locker;
-use PatchManager\Command\ClonePatchCommand;
-use PatchManager\Command\ListPatchesCommand;
-use PatchManager\Command\MigratePatchesCommand;
-use PatchManager\Composer\ComposerJsonUpdater;
-use PatchManager\Composer\LockHashUpdater;
-use PatchManager\Patch\PatchDownloader;
-use PatchManager\Patch\PatchWriter;
-use PatchManager\Tests\Support\ComposerServices;
-use PatchManager\Tests\Support\PatchServer;
+use Idimopoulos\ComposerPatchesClone\Command\ClonePatchCommand;
+use Idimopoulos\ComposerPatchesClone\Command\ListPatchesCommand;
+use Idimopoulos\ComposerPatchesClone\Command\MigratePatchesCommand;
+use Idimopoulos\ComposerPatchesClone\Composer\LockHashUpdater;
+use Idimopoulos\ComposerPatchesClone\Composer\PatchConfig;
+use Idimopoulos\ComposerPatchesClone\Patch\PatchDownloader;
+use Idimopoulos\ComposerPatchesClone\Patch\PatchWriter;
+use Idimopoulos\ComposerPatchesClone\Tests\Support\ComposerServices;
+use Idimopoulos\ComposerPatchesClone\Tests\Support\Filesystem;
+use Idimopoulos\ComposerPatchesClone\Tests\Support\PatchServer;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;
@@ -27,6 +28,7 @@ abstract class CommandTestCase extends TestCase
     private static ?PatchServer $patchServer = null;
 
     protected string $projectRoot;
+    private string $previousCwd;
 
     public static function setUpBeforeClass(): void
     {
@@ -43,11 +45,15 @@ abstract class CommandTestCase extends TestCase
     {
         $this->projectRoot = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'patch-command-' . uniqid('', true);
         mkdir($this->projectRoot, 0777, true);
+        // Composer runs commands from the project root; relative paths depend on it.
+        $this->previousCwd = (string) getcwd();
+        chdir($this->projectRoot);
     }
 
     protected function tearDown(): void
     {
-        $this->deleteDirectory($this->projectRoot);
+        chdir($this->previousCwd);
+        Filesystem::removeDirectory($this->projectRoot);
     }
 
     protected function patchUrl(string $path): string
@@ -102,7 +108,7 @@ abstract class CommandTestCase extends TestCase
         return $this->tester(new ClonePatchCommand(
             new PatchDownloader(ComposerServices::httpDownloader()),
             new PatchWriter($this->projectRoot),
-            new ComposerJsonUpdater($this->composerJsonPath()),
+            new PatchConfig($this->composerJsonPath()),
             $this->lockHashUpdater()
         ));
     }
@@ -112,7 +118,7 @@ abstract class CommandTestCase extends TestCase
         return $this->tester(new MigratePatchesCommand(
             new PatchDownloader(ComposerServices::httpDownloader()),
             new PatchWriter($this->projectRoot),
-            new ComposerJsonUpdater($this->composerJsonPath()),
+            new PatchConfig($this->composerJsonPath()),
             $this->lockHashUpdater()
         ));
     }
@@ -121,7 +127,7 @@ abstract class CommandTestCase extends TestCase
     {
         return $this->tester(new ListPatchesCommand(
             $this->projectRoot,
-            new ComposerJsonUpdater($this->composerJsonPath())
+            new PatchConfig($this->composerJsonPath())
         ));
     }
 
@@ -179,29 +185,5 @@ abstract class CommandTestCase extends TestCase
     protected function composerJsonPath(): string
     {
         return $this->projectRoot . DIRECTORY_SEPARATOR . 'composer.json';
-    }
-
-    private function deleteDirectory(string $directory): void
-    {
-        if (!is_dir($directory)) {
-            return;
-        }
-
-        foreach (scandir($directory) ?: [] as $item) {
-            if ($item === '.' || $item === '..') {
-                continue;
-            }
-
-            $path = $directory . DIRECTORY_SEPARATOR . $item;
-
-            if (is_dir($path) && !is_link($path)) {
-                $this->deleteDirectory($path);
-                continue;
-            }
-
-            @unlink($path);
-        }
-
-        @rmdir($directory);
     }
 }

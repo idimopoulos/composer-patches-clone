@@ -2,6 +2,20 @@
   "name": "idimopoulos/composer-patches-clone",
   "description": "Composer plugin that clones remote cweagans/composer-patches entries into local patch files and updates composer.json.",
   "type": "composer-plugin",
+  "keywords": [
+    "composer",
+    "composer-plugin",
+    "patches",
+    "cweagans",
+    "drupal"
+  ],
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Ilias Dimopoulos",
+      "email": "idimopoulos@hotmail.com"
+    }
+  ],
   "require": {
     "php": ">=8.1",
     "composer-plugin-api": "^2.3",
@@ -14,20 +28,28 @@
   },
   "autoload": {
     "psr-4": {
-      "PatchManager\\": "src/"
+      "Idimopoulos\\ComposerPatchesClone\\": "src/"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "PatchManager\\Tests\\": "tests/"
+      "Idimopoulos\\ComposerPatchesClone\\Tests\\": "tests/"
     }
   },
   "config": {
     "allow-plugins": {
-      "*": true
+      "cweagans/composer-patches": true
+    },
+    "platform": {
+      "php": "8.1.0"
     }
   },
+  "scripts": {
+    "test": "phpunit",
+    "test:unit": "phpunit --testsuite unit",
+    "test:integration": "phpunit --testsuite integration"
+  },
   "extra": {
-    "class": "PatchManager\\Plugin"
+    "class": "Idimopoulos\\ComposerPatchesClone\\Plugin"
   }
 }

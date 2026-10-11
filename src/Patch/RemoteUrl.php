@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PatchManager\Patch;
+namespace Idimopoulos\ComposerPatchesClone\Patch;
 
 final class RemoteUrl
 {

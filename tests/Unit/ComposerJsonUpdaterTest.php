@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace PatchManager\Tests\Unit;
+namespace Idimopoulos\ComposerPatchesClone\Tests\Unit;
 
-use PatchManager\Composer\ComposerJsonUpdater;
+use Idimopoulos\ComposerPatchesClone\Composer\ComposerJsonUpdater;
+use Idimopoulos\ComposerPatchesClone\Tests\Support\Filesystem;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
@@ -20,7 +21,7 @@ final class ComposerJsonUpdaterTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->deleteDirectory($this->workspace);
+        Filesystem::removeDirectory($this->workspace);
     }
 
     public function testItCreatesMissingPatchSectionsAutomatically(): void
@@ -216,35 +217,5 @@ final class ComposerJsonUpdaterTest extends TestCase
         copy($source, $destination);
 
         return $destination;
-    }
-
-    private function deleteDirectory(string $directory): void
-    {
-        if (!is_dir($directory)) {
-            return;
-        }
-
-        $items = scandir($directory);
-
-        if ($items === false) {
-            return;
-        }
-
-        foreach ($items as $item) {
-            if ($item === '.' || $item === '..') {
-                continue;
-            }
-
-            $path = $directory . DIRECTORY_SEPARATOR . $item;
-
-            if (is_dir($path) && !is_link($path)) {
-                $this->deleteDirectory($path);
-                continue;
-            }
-
-            @unlink($path);
-        }
-
-        @rmdir($directory);
     }
 }

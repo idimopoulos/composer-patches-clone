@@ -13,4 +13,3 @@ WORKDIR /app
 
 ENV COMPOSER_ALLOW_SUPERUSER=1
 
-RUN composer config --global allow-plugins.true true

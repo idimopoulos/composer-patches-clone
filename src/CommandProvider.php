@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PatchManager;
+namespace Idimopoulos\ComposerPatchesClone;
 
 use Composer\Composer;
 use Composer\Factory;
@@ -10,13 +10,13 @@ use Composer\IO\IOInterface;
 use Composer\IO\NullIO;
 use Composer\Plugin\Capability\CommandProvider as CommandProviderCapability;
 use Composer\Util\HttpDownloader;
-use PatchManager\Command\ClonePatchCommand;
-use PatchManager\Command\ListPatchesCommand;
-use PatchManager\Command\MigratePatchesCommand;
-use PatchManager\Composer\ComposerJsonUpdater;
-use PatchManager\Composer\LockHashUpdater;
-use PatchManager\Patch\PatchDownloader;
-use PatchManager\Patch\PatchWriter;
+use Idimopoulos\ComposerPatchesClone\Command\ClonePatchCommand;
+use Idimopoulos\ComposerPatchesClone\Command\ListPatchesCommand;
+use Idimopoulos\ComposerPatchesClone\Command\MigratePatchesCommand;
+use Idimopoulos\ComposerPatchesClone\Composer\LockHashUpdater;
+use Idimopoulos\ComposerPatchesClone\Composer\PatchConfig;
+use Idimopoulos\ComposerPatchesClone\Patch\PatchDownloader;
+use Idimopoulos\ComposerPatchesClone\Patch\PatchWriter;
 
 final class CommandProvider implements CommandProviderCapability
 {
@@ -41,6 +41,7 @@ final class CommandProvider implements CommandProviderCapability
         // the path is relative to the working directory, as Composer uses it.
         $composerFile = Factory::getComposerFile();
         $patchDownloader = new PatchDownloader($this->httpDownloader());
+        $patchConfig = new PatchConfig($composerFile, $this->composerPatchesMajor());
         $lockHashUpdater = new LockHashUpdater(
             $composerFile,
             $this->lockEnabled() ? Factory::getLockFile($composerFile) : null
@@ -50,20 +51,45 @@ final class CommandProvider implements CommandProviderCapability
             new ClonePatchCommand(
                 $patchDownloader,
                 new PatchWriter($projectRoot),
-                new ComposerJsonUpdater($composerFile),
+                $patchConfig,
                 $lockHashUpdater
             ),
             new MigratePatchesCommand(
                 $patchDownloader,
                 new PatchWriter($projectRoot),
-                new ComposerJsonUpdater($composerFile),
+                $patchConfig,
                 $lockHashUpdater
             ),
             new ListPatchesCommand(
                 $projectRoot,
-                new ComposerJsonUpdater($composerFile)
+                $patchConfig
             ),
         ];
+    }
+
+    /**
+     * The installed cweagans/composer-patches major version, if known.
+     *
+     * 1.x and 2.x read patches files differently, so PatchConfig follows the
+     * installed one. Dev branches without a numeric version count as unknown.
+     */
+    private function composerPatchesMajor(): ?int
+    {
+        $composer = $this->args['composer'] ?? null;
+
+        if (!$composer instanceof Composer) {
+            return null;
+        }
+
+        $package = $composer->getRepositoryManager()->getLocalRepository()->findPackage('cweagans/composer-patches', '*');
+
+        if ($package === null) {
+            return null;
+        }
+
+        $major = (int) explode('.', $package->getVersion())[0];
+
+        return $major > 0 ? $major : null;
     }
 
     /**

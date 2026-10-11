@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace PatchManager\Command;
+namespace Idimopoulos\ComposerPatchesClone\Command;
 
 use Composer\Command\BaseCommand;
-use PatchManager\Composer\ComposerJsonUpdater;
-use PatchManager\Composer\LockHashUpdater;
-use PatchManager\Patch\PatchDownloader;
-use PatchManager\Patch\PatchWriter;
-use PatchManager\Patch\RemoteUrl;
+use Idimopoulos\ComposerPatchesClone\Composer\LockHashUpdater;
+use Idimopoulos\ComposerPatchesClone\Composer\PatchConfig;
+use Idimopoulos\ComposerPatchesClone\Patch\PatchDownloader;
+use Idimopoulos\ComposerPatchesClone\Patch\PatchWriter;
+use Idimopoulos\ComposerPatchesClone\Patch\RemoteUrl;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -20,7 +20,7 @@ final class ClonePatchCommand extends BaseCommand
     public function __construct(
         private readonly PatchDownloader $patchDownloader,
         private readonly PatchWriter $patchWriter,
-        private readonly ComposerJsonUpdater $composerJsonUpdater,
+        private readonly PatchConfig $patchConfig,
         private readonly LockHashUpdater $lockHashUpdater
     ) {
         parent::__construct();
@@ -49,7 +49,9 @@ final class ClonePatchCommand extends BaseCommand
         $patchContents = $this->patchDownloader->download($url);
         $output->writeln('Patch downloaded');
 
-        $existingPath = $this->composerJsonUpdater->getPatchPath($package, $description);
+        $store = $this->patchConfig->storeFor($package, $description);
+        $store->assertCanStore($package);
+        $existingPath = $store->getPatchPath($package, $description);
         if (is_string($existingPath) && !RemoteUrl::isRemote($existingPath)) {
             $patchPath = $this->patchWriter->writeToRelativePath($existingPath, $patchContents);
         } else {
@@ -66,9 +68,15 @@ final class ClonePatchCommand extends BaseCommand
         $output->writeln(sprintf('Patch saved to %s', $patchPath));
 
         $lockWasFresh = $this->lockHashUpdater->wasFresh();
-        $this->composerJsonUpdater->replacePatch($package, $description, $patchPath, $url);
-        $output->writeln('composer.json updated');
-        $this->writeLockMessage($output, $this->lockHashUpdater->sync($lockWasFresh));
+        $store->replacePatch($package, $description, $patchPath, $url);
+        $output->writeln(sprintf('%s updated', basename($store->getPath())));
+
+        // Only composer.json feeds the lock's content-hash.
+        if ($store === $this->patchConfig->composerJson()) {
+            $this->writeLockMessage($output, $this->lockHashUpdater->sync($lockWasFresh));
+        }
+
+        $this->writeLockMessage($output, $this->patchConfig->relockHint());
 
         return self::SUCCESS;
     }

@@ -15,6 +15,23 @@ It helps turn remote patch definitions into local patch files that live in your 
 - `composer patches:list [package] [--format=table|json]`  
   List configured patches with their local path and the URL they were downloaded from. Filter by package, using wildcards if needed (`drupal/*`).
 
+## Patches files
+
+Patches kept in a separate file are supported too. The plugin follows the rules of the installed cweagans/composer-patches version:
+
+- **1.x** reads `extra.patches-file`, and only when `composer.json` has no `extra.patches`.
+- **2.x** reads the file named by `COMPOSER_PATCHES_PATCHES_FILE`, else `extra.composer-patches.patches-file`, else `patches.json` in the project root, and merges it with `extra.patches`.
+- **2.x `disable-resolvers`** (or `COMPOSER_PATCHES_DISABLE_RESOLVERS`) is respected: a disabled `RootComposer` or `PatchesFile` resolver means that source is neither read nor written.
+
+- `patches:migrate` and `patches:list` cover both `composer.json` and the patches file.
+- `patches:clone` updates a patch where it is already defined. New patches go to the patches file when one is in use (configured, or an existing `patches.json` on 2.x) and `composer.json` has no `extra.patches` of its own; otherwise they go to `composer.json`. No `patches.json` is created unless it is configured or `composer.json` is switched off with `disable-resolvers`.
+- Source URLs for patches in the patches file are stored in that file, under a top-level `patches-sources` key. cweagans/composer-patches only reads `patches`, so the extra key is ignored there.
+- The expanded format of cweagans/composer-patches 2.x (a list of `{"description": …, "url": …}` objects) isn't edited: `patches:clone` refuses to touch such a package and leaves the file unchanged, and `patches:migrate` skips it.
+
+## cweagans/composer-patches 2.x
+
+Version 2.x applies patches from its own `patches.lock.json`, not directly from the definitions. When that file exists, `patches:clone` and `patches:migrate` remind you to run `composer patches-relock` and then `composer patches-repatch` so the change is applied.
+
 ## Source URLs
 
 `patches:clone` and `patches:migrate` record where each patch came from in `extra.patches-sources`, keyed the same way as `extra.patches`:
@@ -54,12 +71,16 @@ Or run commands directly:
 
 ```bash
 docker compose run --rm php composer install
-docker compose run --rm php vendor/bin/phpunit
+docker compose run --rm php composer test
 ```
+
+`composer test:unit` runs only the fast unit tests. `composer test:integration` runs the end-to-end tests, which call a real `composer` binary and need network access to Packagist.
+
+`composer.lock` is resolved for PHP 8.1 (`config.platform.php`), so it installs on every supported PHP version.
 
 ## Notes
 
-- The plugin currently uses the `PatchManager\\` PHP namespace.
+- The PHP namespace is `Idimopoulos\ComposerPatchesClone\`.
 - By default, local patches are written under `resources/patch`.
 - `patches:clone` also supports `--base-path` and `--patch-name`. `--patch-name` must be a plain filename and `--base-path` must not contain `..` segments.
 - Running `patches:clone` again for an existing description refreshes that patch in place, and turns a remote entry into a local one.
@@ -72,3 +93,7 @@ docker compose run --rm php vendor/bin/phpunit
 ## Continuous Integration
 
 Every pull request runs the test suite on GitHub Actions (`.github/workflows/ci.yml`). The jobs cover PHP 8.1 to 8.4 with the newest allowed dependencies, PHP 8.1 with the oldest allowed dependencies and Composer 2.3, and PHP 8.3 with the committed `composer.lock`.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

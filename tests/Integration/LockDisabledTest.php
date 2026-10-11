@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace PatchManager\Tests\Integration;
+namespace Idimopoulos\ComposerPatchesClone\Tests\Integration;
 
 use Composer\Package\Locker;
 
